@@ -1,0 +1,118 @@
+Lexique :
+  | → ou
+  String[] → Array de String
+  <Key:Value> → Objet de clés "Keys" qui on pour valeur "Value" (peut être "Number" pour définir les valeurs sur des valeurs numériques par exemple)
+  * → optionnel
+
+Structure Général :
+  - name (String)
+  - *authors (Author[])
+  - *version (Number|String) default: 1
+  - tags (String[])
+  - presentation (String)
+  - procedures (VentureProcedure[])
+  - initialization (VentureInitialization)
+  - situations (VentureSituation[])
+  - *translated (Boolean)
+  - *translations (<Key:<Key:(String|Number)|(String|Number)[]>>)
+
+Author :
+  - name (String)
+  - *contact (Object)
+    - *mail (String)
+    - *website (String)
+    - *twitter (String)
+    - *bsky (String)
+    - *instagram (String)
+    - *discord (String)
+
+VentureInitialization :
+  - situation (String)
+  - *stats <Key:Number|Range>
+  - *inventory <Key:Number|Range>
+  - *variable <Key:Number|Range>
+
+VentureProcedure:
+  - id (String)
+  - *requirements (ExpressionString|VentureRequirement[])
+  - actions (VentureAction[])
+
+VentureSituation :
+  - id (String)
+  - description (String)
+  - *image (Object)
+    - *url (String)
+    - *base64 (String)
+    - *file (String)
+  - options (Array)
+    - label (String)
+    - *actions (VentureAction[])
+    - *requirements (ExpressionString|VentureRequirement[])
+    - *procedures (VentureProcedure[])
+    - *hidden (ExpressionString|VentureRequirement[])
+
+VentureRequirement :
+  - type ("AND"|"OR"|"comparison")
+  
+  VentureRequirement AND|OR :
+    - requirements (ExpressionString|VentureRequirement[])
+  
+  VentureRequirement Comparison :
+    - left (String)
+    - right (String)
+    - operator (Operator) default: "set"
+    - *precision (Number)
+    - *round ("round"|"ceil"|"floor")
+
+VentureAction :
+  - type (inventory/condition/stat/goto/variable/procedure/reward)
+  - conditions (ExpressionString|VentureRequirement[])
+
+  VentureAction Inventory :
+    - item (String)
+    - count (Number|Range) default: 1
+    - action ("set"|"add"|"remove") default: "add"
+
+  VentureAction Condition :
+    - requirements (ExpressionString|VentureRequirement[])
+    - success (VentureAction[])
+    - fail (VentureAction[])
+
+  VentureAction Stat :
+    - name (String)
+    - value: (Number|Range)
+    - operator (Operator) default: "set"
+    - *precision (Number)
+    - *round ("round"|"ceil"|"floor")
+
+  VentureAction Goto :
+    - target (String)
+
+  VentureAction Variable :
+    - name (String)
+    - value: (Number|Range)
+    - operator (Operator) default: "set"
+    - *precision (Number)
+    - *round ("round"|"ceil"|"floor")
+
+  VentureAction Procedure :
+    - id
+  
+  VentureAction Reward :
+    - id
+    - title
+    - *description
+    - *image (Object)
+      - *url (String)
+      - *base64 (String)
+      - *file (String)
+    - *color
+
+Operator :
+  set, add, remove, multiply, divide, modulo, power, sqrt
+
+Range :
+  - min (Number)
+  - max (Number)
+  - *precision (Number)
+  - *round ("round"|"ceil"|"floor")

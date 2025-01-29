@@ -1,0 +1,185 @@
+"use strict";
+
+const lv = l.Venture,
+	  lr = l.roi, lrd = lr.dragon, lrc = lr.collier, lrm = lr.miroir,
+	  le = l.elfes, lem = le.maison, lec = le.ceremonie,
+	  ln = l.nains,
+	  victoires = getVictoires(),
+	  vars = {};
+
+
+const getById = document.getElementById.bind(document);
+const select = document.querySelector.bind(document);
+
+document.body.onload = initStats;
+
+
+getById("reset").innerHTML = `<span class="rainbow" onClick="getById('resetConfirm').hidden = false;">${l.repartirDeZero}</span>
+<br /><br />
+<button class="tiny" onClick="getById('reset').hidden = true;">${l.cacheCa}</button>
+<br /><br />
+<span class="rainbow" id="resetConfirm" onClick="fullReset();" hidden="true">${l.repartirDeZero_sur}</span>`;
+
+getById("voirChampions").innerHTML = l.voirLesChampions;
+getById("res").innerHTML = lv.nouvelleVenture;
+getById("voirChampions").onclick = () => document.location = 'venturers.php?view';
+
+select("#tropPetit button").onclick = () => getById('tropPetit').style.display = 'none';
+
+getById("res").onclick = () => (mode === "orc" ? orcalise : reinitialise)('go');
+
+
+function li(link, text)
+{
+	return "<li><span onClick=\"" + link + ";\">" + text + "</span></li>";
+}
+
+function update(texte, suite)
+{
+	if(!suite && suite !== null)
+		suite = texte.pop();
+	else if(suite instanceof Array)
+		suite = suite.map(suite => li(`${suite[1]}('${suite[2]}')`, suite[0])).join("");
+
+	getById("texte").innerHTML = "<p>" + (texte instanceof Array ? texte.join("</p><p>") : texte) + "</p>";
+	getById("suite").innerHTML = suite || "";
+}
+
+
+function getVictoires(liste = lv.victoires)
+{
+	const victoires = [];
+
+	for(const route of Object.values(liste))
+		victoires.push(...Object.keys(route));
+
+	return victoires.filter(v => v !== "titre");
+}
+
+function getNbVictoires(liste = victoires)
+{
+	return liste.filter(Cookie.get).length;
+}
+
+
+
+function initListeVictoires(liste)
+{
+	const yes = lv.yes;
+
+	for(const [route, victoires] of Object.entries(liste))
+	{
+		let table = "", titre;
+
+		for(const [id, victoire] of Object.entries(victoires))
+		{
+			if(id === "titre")
+				titre = victoire;
+			else
+				table += `<tr><th scope="row">${victoire.nom}</th><td id="${id}">${Cookie.get(id) ? yes : "—"}</td></tr>`;
+		}
+
+		getById(route).innerHTML = `<h2>${titre}</h2><table border="1">${table}</table>`;
+	}
+}
+
+function initStats()
+{
+	initListeVictoires(lv.victoires);
+
+	if(getNbVictoires() === 15)
+	{
+		getById('switchMode').hidden = false;
+		inorcStats();
+	}
+
+    getById('topRightCheckbox').checked = Cookie.get("topRightOpacity") === "true";
+
+	if(Cookie.get("defaultMode") === "orc" && getNbVictoires() === 15)
+		switchMode();
+	else
+		reinitialise("go");
+}
+
+function reinitialise(vraiment)
+{
+	let res = "";
+
+	switch(vraiment)
+	{
+		case "mort":
+			res = `<p>${lv.ded.random()}</p>`;
+		case "prepare":
+			getById("res").style.display = "initial";
+			break;
+		case "go":
+			getById("texte").innerHTML = lv.intro;
+			getById("texte").style.height = "270px";
+			getById("suite").innerHTML = li("sandwich('miam')", lv.sandwich_miam)
+														+ li("sandwich('detruire')", lv.sandwich_detruire)
+														+ li("sandwich('donner')", lv.sandwich_donner);
+			getById("conclusion").innerHTML = "";
+			getById("res").style.display = "none";
+			break;
+	}
+
+	return res;
+}
+
+function victoire(type)
+{
+	let texte;
+	let v = lv.victoires.humains[type] || lv.victoires.elfes[type] || lv.victoires.nains[type];
+
+	if(type === "menaceMiroir")
+	{
+		v = lv.victoires.humains.miroir;
+		texte = [v.menace, ...v.texte];
+		type = "miroir";
+	}
+	else if(v)
+	{
+		texte = v.texte;
+		if(type === "mortAuxBandits")
+			getById("texte").style.height = "320px";
+	}
+	else
+	{
+		v = lv.victoires.nains.rahklur;
+		texte = v.texte.map(ligne => ligne.replace("{{NAME}}", type));
+		type = "rahklur";
+	}
+
+	update(texte, null);
+
+	let concl = lv.congratulations.replace("{{VICT}}", v.nom);
+
+	if(Cookie.get(type) === null)
+		Cookie.set(type, 1, 356);
+	else
+		concl += lv.congrats_alreadyHad;
+
+	concl += "<br />" + lv.congrats_count.replace("{{COUNT}}", getNbVictoires());
+
+	getById("conclusion").innerHTML = concl;
+	getById(type).innerHTML = lv.yes;
+	reinitialise("prepare");
+
+	if(getNbVictoires() === 15 && getById('switchMode').hidden)
+	{
+		getById('switchMode').hidden = false;
+		window.alert(lv.finished);
+	}
+}
+
+
+
+getById("bottomRight").onclick = function getAllLaul() {
+	if(window.prompt(lv.gibPassword) === "balabamba")
+	{
+		victoires.forEach(e => Cookie.set(e, 1, 356));
+		location.reload();
+	}
+	else
+		window.alert(lv.wrongPassword);
+}

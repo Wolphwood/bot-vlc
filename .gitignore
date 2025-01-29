@@ -1,0 +1,8 @@
+node_modules
+logs/**
+hastes
+
+config.js
+debug.txt
+
+*.bat
