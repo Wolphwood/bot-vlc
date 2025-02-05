@@ -91,8 +91,8 @@ global.Emotes = require('../assets/Emotes');
 global.UnicodeEmotes = require('../assets/UnicodeEmotes');
 
 // Cooldown
-let { Cooldown } = require('./Cooldown');
-global.Cooldown = Cooldown;
+let { oldCooldown } = require('./oldCooldown.js');
+global.oldCooldown = oldCooldown;
 
 // ShortUniqueId
 global.ShortUniqueId = require('./ShortUniqueId');

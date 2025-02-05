@@ -15,6 +15,9 @@ module.exports = {
 		animated: /<a:.*:[0-9]*>/gi.test(emote),
 	}),
 
+	downvote: "<:downvote:1336729524913831946>",
+	upvote: "<:upvote:1336729498015633580>",
+	
 	progress: {
 		blue: {
 			start: {

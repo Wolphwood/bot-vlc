@@ -8,8 +8,8 @@ global.loadedModules.modules.push({
 module.exports = ({ message }) => {
     if (message.author.bot) return;
 
-    const globalCooldown = new Cooldown('auto-reponse', 'global');
-    const cooldown = new Cooldown('auto-reponse', message.author.id);
+    const globalCooldown = new oldCooldown('auto-reponse', 'global');
+    const cooldown = new oldCooldown('auto-reponse', message.author.id);
 
     if (!globalCooldown.passed() || !cooldown.passed()) return;
 

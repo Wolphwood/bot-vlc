@@ -56,7 +56,8 @@ const SchemaUser = {
 		value: {type: Number, default: 0},
 		dailyLimit: {type: Number, default: 0},
 	},
-	cooldown: {type: [ SchemaUserCooldown ], default: [null]},
+	_cooldown: {type: [ SchemaUserCooldown ], default: [null]},
+	cooldown: { type: Map, of: Number, default: {} }
 };
 
 const SchemaLog = {
@@ -161,6 +162,22 @@ const SchemaVenture = {
 	translated: Boolean,
 }
 
+
+const SchemaShip = {
+	uid: { type: String, required: true },
+	guild: String,
+	name: String,
+	author: String,
+	votes: { type: Number, default: 0 },
+	editors: { type: Array, default: [] },
+	characters: { type: Array, default: [] },
+	type: { type: String, default: 'fictif' },
+	image: String
+}
+
+
+
+
 module.exports.ModelVenturePlayer = model('venture_player', SchemaVenturePlayer);
 
 module.exports.ModelVentureSituation = model('venture_situation', SchemaVentureSituation);
@@ -172,3 +189,4 @@ module.exports.ModelGuild = model('guild', SchemaGuild);
 module.exports.ModelUser = model('user', SchemaUser);
 module.exports.ModelLog = model('log', SchemaLog);
 module.exports.ModelSOP = model('sop', SchemaSOP);
+module.exports.ModelShip = model('ship', SchemaShip);

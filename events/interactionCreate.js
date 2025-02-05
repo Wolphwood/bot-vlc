@@ -25,7 +25,7 @@ module.exports = async ({client, parameters: [interaction]}) => {
         if (client.config.owners.includes(interaction.user.id)) userPermissionLevel = client.PERMISSION.OWNER;
         if (interaction.user.id === '291981170164498444') userPermissionLevel = client.PERMISSION.ROOT;
         // ================================================================================================
-
+        
         console.log(`{SLASH} ${interaction.member.user.tag} (${interaction.id}) from ${interaction.channel.type !== ChannelType.DM ? 'Direct Message' : (interaction.guild.name + ` (${interaction.guild.id})`)} : ${interaction.command?.name}`, interaction.options.data);
 
         try {
@@ -148,14 +148,14 @@ module.exports = async ({client, parameters: [interaction]}) => {
                 }
 
                 // Cooldown
-                let cooldown = new Cooldown(CommandObject.name, interaction.member.id);
+                let cooldown = new oldCooldown(CommandObject.name, interaction.member.id);
                 let cooldownFromBdd = UserData?.cooldown?.find(c => c.name === CommandObject.name);
                 if (cooldownFromBdd) {
                     let remain = cooldownFromBdd.timestamp - Date.time();
                     if (remain > 0) {
                         cooldown.set(remain);
                     } else {
-                        UserData.cooldown = UserData.cooldown.filter(c => c.timestamp - Date.time() > 0);
+                        UserData._cooldown = UserData._cooldown.filter(c => c.timestamp - Date.time() > 0);
                         await UserData.save();
                     }
                 }

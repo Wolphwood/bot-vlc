@@ -188,14 +188,14 @@ module.exports = async ({ client, parameters: [message]}) => {
         }
 
         // Cooldown
-        let cooldown = new Cooldown(CommandObject.name, message.author.id);
-        let cooldownFromBdd = UserData.cooldown.find(c => c.name === CommandObject.name);
+        let cooldown = new oldCooldown(CommandObject.name, message.author.id);
+        let cooldownFromBdd = UserData._cooldown.find(c => c.name === CommandObject.name);
         if (cooldownFromBdd) {
             let remain = cooldownFromBdd.timestamp - Date.time();
             if (remain > 0) {
                 cooldown.set(remain);
             } else {
-                UserData.cooldown = UserData.cooldown.filter(c => c.timestamp - Date.time() > 0);
+                UserData._cooldown = UserData._cooldown.filter(c => c.timestamp - Date.time() > 0);
                 await UserData.save();
             }
         }

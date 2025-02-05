@@ -13,7 +13,7 @@ const { Model } = require("mongoose");
 // Importation des Schemas
 const {
 	ModelGuild, ModelUser, ModelLog,
-	ModelSOP,
+	ModelSOP, ModelShip,
 	ModelVenturePlayer,
 	ModelVentureSituation, ModelVentureProcedure, ModelVentureTranslations, ModelVenture,
 } = require("./Models.js");
@@ -154,6 +154,42 @@ module.exports = class Manager {
 		pass: async (guild, uid, count = 1) => {
 			return ModelSOP.updateOne({guild, uid}, {
 				$inc: { [`stats.passed`]: count }
+			})
+		},
+	}
+
+	ships = {
+		exist: async (guild, uid) => {
+			return await ModelShip.findOne({guild, uid}) !== null;
+		},
+		get: async (guild, uid) => {
+			if (!this.ships.exist(guild, uid)) throw 'NON_EXISTING_SHIP_SETTINGS';
+			return await ModelShip.findOne({guild, uid});
+		},
+		getAll: async (guild) => {
+			return await ModelShip.find({guild});
+		},
+		getAllUID: async (guild) => {
+			return await ModelShip.find({guild}, {uid:1});
+		},
+		create: async (data) => {
+			if (!data.uid) {
+				let uuids = await this.ships.getAllUID();
+				data.uid = CreateUID(uuids, {size: 8});
+			}
+
+			if (!this.ships.exist(data.uid)) throw 'ALREADY_EXISTING_SOP';
+
+			let ship = new ModelShip(data);
+			await ship.save();
+			return ship;
+		},
+		delete: async (guild,uid) => {
+			return await ModelShip.deleteOne({guild,uid});
+		},
+		vote: async (guild, uid, count = 1) => {
+			return ModelShip.updateOne({guild, uid}, {
+				$inc: { votes: count }
 			})
 		},
 	}

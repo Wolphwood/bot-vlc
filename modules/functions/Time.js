@@ -3,6 +3,7 @@ global.loadedModules.modules.push({
     name: "Time Functions",
     version: "1.0",
 	details: [
+		"timestamp",
 		"Date.getUnixTime",
 		"Date.now",
 		"Date.time",
@@ -24,6 +25,7 @@ exports.Sleep = function(time=1000) {
 }
 
 // [ Unix Time system ]
+Date.timestamp = function() { return new Date().getTime()/1000|0 };
 Date.prototype.getUnixTime = function() { return this.getTime()/1000|0 };
 Date.now = function() { return new Date(); }
 Date.time = function() { return Date.now().getUnixTime(); }

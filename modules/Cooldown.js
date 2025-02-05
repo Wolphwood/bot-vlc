@@ -1,7 +1,7 @@
 // ========================================================================== //
 global.loadedModules.modules.push({
     name: "Cooldown",
-    version: "3.2",
+    version: "4.0",
     details: [
         'module.purge',
         'module.Cooldown',
@@ -16,51 +16,85 @@ global.loadedModules.modules.push({
 const _COOLDOWN = {};
 
 function purge() {
-	Object.keys(_COOLDOWN).forEach(cldwn => {
-		Object.keys(_COOLDOWN[cldwn]).forEach(key => {
-			if (Date.time() >= _COOLDOWN[cldwn][key]) delete _COOLDOWN[cldwn][key];
+	Object.keys(_COOLDOWN).forEach(name => {
+		Object.keys(_COOLDOWN[name]).forEach(key => {
+			if (Date.time() >= _COOLDOWN[name][key]) delete _COOLDOWN[name][key];
 		});
-		if (Object.keys(_COOLDOWN[cldwn]).length === 0) delete _COOLDOWN[cldwn];
+		if (Object.keys(_COOLDOWN[name]).length === 0) delete _COOLDOWN[name];
 	});
 }
 const purgeInterval = setInterval(purge, 5*60*1000);
 
 
 class Cooldown {
-	cldwn;id;value;
-	constructor(cldwn,id){
-		if (typeof id === 'undefined') {throw 'INVALID_COOLDOWN_ID';}
-		
-		if (!Cooldown.cooldown[cldwn]) Cooldown.cooldown[cldwn] = {};
-		if (!Cooldown.cooldown[cldwn][id]) Cooldown.cooldown[cldwn][id] = Date.time();
-		
-		this.cldwn = cldwn;
-		this.id = id;
-		this.value =  Cooldown.cooldown[cldwn][id] - Date.time();
-		this.timestamp = Cooldown.cooldown[cldwn][id];
-	}
-	static get cooldown() {return _COOLDOWN;}
-	
-	passed() {
-		return this.value < 1;
-	}
-	
-	set(time=0) {
-		this.value = time;
-		this.timestamp = Date.time() + time;
-		Cooldown.cooldown[this.cldwn][this.id] = this.timestamp; 
-	}
+  constructor({ name, id, value, timestamp } = {}) {
+    if (typeof name === 'undefined') throw 'INVALID_COOLDOWN_NAME';
+    if (typeof id === 'undefined') throw 'INVALID_COOLDOWN_ID';
 
-	reset() {
-		this.value = 0;
-		this.timestamp = Date.time();
-		Cooldown.cooldown[this.cldwn][this.id] = 0;
-	}
+    if (!Cooldown.cooldown[name]) Cooldown.cooldown[name] = {};
+    if (!Cooldown.cooldown[name][id]) Cooldown.cooldown[name][id] = timestamp ?? Date.timestamp();
 
-	list() {
-		return _COOLDOWN;
-	};
+    this.name = name;
+    this.id = id;
+    this.value = value || (Cooldown.cooldown[name][id] - Date.timestamp());
+    this.timestamp = Cooldown.cooldown[name][id];
+  }
+
+  static get cooldown() {
+    return _COOLDOWN;
+  }
+
+  static exist(name, id) {
+	if (!name) return false;
+	if (!id) return typeof this._COOLDOWN[name] !== 'undefined';
+	return typeof this._COOLDOWN[name][id] !== 'undefined';
+  }
+
+  passed() {
+    return Date.timestamp() >= this.timestamp;
+  }
+
+  remain() {
+    return Math.max(0, this.timestamp - Date.timestamp());
+  }
+
+  set(time = 0) {
+    this.value = time;
+    this.timestamp = Date.timestamp() + time;
+    Cooldown.cooldown[this.name][this.id] = this.timestamp;
+  }
+
+  setTimestamp(value = Date.timestamp()) {
+    if (value > Date.timestamp()) {
+      this.timestamp = value;
+      this.value = value - Date.timestamp();
+    } else {
+      this.timestamp = 0;
+      this.value = 0;
+    }
+    Cooldown.cooldown[this.name][this.id] = this.timestamp;
+  }
+
+  reset() {
+    this.value = 0;
+    this.timestamp = 0;
+    Cooldown.cooldown[this.name][this.id] = 0;
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      id: this.id,
+      value: this.value,
+      timestamp: this.timestamp,
+    };
+  }
+
+  clone() {
+    return new Cooldown(this.toJSON());
+  }
 }
+
 
 
 module.exports = {

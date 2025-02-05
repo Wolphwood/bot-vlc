@@ -38,6 +38,7 @@ if (typeof global.loadedModules !== 'undefined') {
             "Array.prototype.fromLast",
             "Array.prototype.last",
             "Array.prototype.get",
+            "Array.prototype.getRandomIndex",
             "Array.prototype.getRandomElement",
             "Array.prototype.outRandomElement",
             "Array.prototype.shuffle",
@@ -253,6 +254,9 @@ const ArrayFunctions = {
     get: function(index) {
         if (index < 0) return this[this.length + index];
         return this[index];
+    },
+    getRandomIndex: function () {
+        return Math.floor(Math.random() * this.length);
     },
     getRandomElement: function () {
         return this[Math.floor(Math.random() * this.length)]
