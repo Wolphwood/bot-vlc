@@ -60,7 +60,7 @@ module.exports = class Manager {
 		exist: async (guild,id) => {
 			return await ModelUser.findOne({guild,id}) !== null;
 		},
-		get: async (guild, id, options) => {
+		get: async (guild, id, options = {}) => {
 			if (!this.user.exist(guild,id)) throw 'NON_EXISTING_USER_SETTINGS';
 			return await ModelUser.findOne({guild, id}, options);
 		},

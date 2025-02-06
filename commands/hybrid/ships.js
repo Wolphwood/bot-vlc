@@ -337,6 +337,13 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 label: "Voter !",
                                 style: ButtonStyle.Success,
                                 action: async function() {
+                                    // Force Check timestamp
+                                    let userdata = await Manager.user.get(UserData.guild, UserData.id, { cooldown: 1 });
+                                    if (userdata.cooldown.get(cooldown.name) > Date.timestamp()) {
+                                        UserData.cooldown.set(cooldown.name, userdata.cooldown.get(cooldown.name));
+                                        return true;
+                                    }
+
                                     this.data.ships[this.data._view.index].votes += 1;
                                     await Manager.ships.vote(ship.guild, ship.uid);
 
