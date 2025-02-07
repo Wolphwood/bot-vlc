@@ -304,7 +304,7 @@ async function GetInput({ interaction, title = "\u200b", placeholder = "\u200b",
         let response = await interaction.awaitModalSubmit({ filter: modalFilter, time: 60*1000 });
         return type(response.fields.getTextInputValue(uid+':modal-input'));
     } catch (error) {
-        console.error(`[ MODAL-ERROR : ${Date.time()} ]`, error);
+        console.error(`[ MODAL-ERROR : ${Date.timestamp()} ]`, error);
         return default_value;
     }
 };

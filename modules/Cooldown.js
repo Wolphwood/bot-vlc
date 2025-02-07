@@ -5,10 +5,15 @@ global.loadedModules.modules.push({
     details: [
         'module.purge',
         'module.Cooldown',
-        'Cooldown.passed',
-        'Cooldown.set',
-        'Cooldown.reset',
-        'Cooldown.list',
+        'Cooldown.cooldown',
+        'Cooldown.exist',
+        'Cooldown.prototype.passed',
+        'Cooldown.prototype.remain',
+        'Cooldown.prototype.set',
+        'Cooldown.prototype.setTimestamp',
+        'Cooldown.prototype.reset',
+        'Cooldown.prototype.toJSON',
+        'Cooldown.prototype.clone',
     ]
 });
 // ========================================================================== //
@@ -18,7 +23,7 @@ const _COOLDOWN = {};
 function purge() {
 	Object.keys(_COOLDOWN).forEach(name => {
 		Object.keys(_COOLDOWN[name]).forEach(key => {
-			if (Date.time() >= _COOLDOWN[name][key]) delete _COOLDOWN[name][key];
+			if (Date.timestamp() >= _COOLDOWN[name][key]) delete _COOLDOWN[name][key];
 		});
 		if (Object.keys(_COOLDOWN[name]).length === 0) delete _COOLDOWN[name];
 	});

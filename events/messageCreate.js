@@ -7,6 +7,8 @@ global.loadedModules.events.push({
 
 const { ChannelType } = require('discord.js');
 const AutoReponse = require('../modules/AutoReponse');
+const { Cooldown } = require('../modules/Cooldown');
+
 const { noop } = require('../modules/functions/Utils');
 
 module.exports = async ({ client, parameters: [message]}) => {
@@ -25,7 +27,7 @@ module.exports = async ({ client, parameters: [message]}) => {
         return message.reply("L'API Discord ayant changer, le système par message privé à changer, et nécessite une refonte au niveau du bot.\nLes commandes & actions par messages privés sont donc désactiver pour le moment.");
     }
     
-    console.log(`{COMMAND} ${message.author.tag} (${message.id}) from ${message.channel.type === 'DM' ? 'Direct Message' : (message.guild.name + ` (${message.guild.id})`)} : ${message.content}`);
+    console.log(`{COMMAND} ${message.author.tag} (${message.id}) from ${message.channel.type === ChannelType.DM ? 'Direct Message' : (message.guild.name + ` (${message.guild.id})`)} : ${message.content}`);
 
     // ===============================================================================================
     // [ DEFINE ARGS ]
@@ -33,14 +35,13 @@ module.exports = async ({ client, parameters: [message]}) => {
 
     content = message.content; // Récupérer le contenus du message à analyser.
     
-    let rdmQuoteArgs = ''; // Générer un token aléatoire.
-    while (rdmQuoteArgs === '' || message.content.includes(rdmQuoteArgs)) {
+    let rdmQuoteArgs; // Générer un token aléatoire.
+    do {
         rdmQuoteArgs = String(Math.random()).slice(2) + "QARGS";
-    }
+    } while (message.content.includes(rdmQuoteArgs));
 
     let quoteArgs = content.match(/"([^"]|(?<=\\)")*"/g) || []; // Récupérer les arguments quoted.
     quoteArgs.forEach((qA,i) => { content = content.replace(qA, rdmQuoteArgs + i) }); // remplacer les arguments quoted par le token 'rdmQuoteArgs'.
-    
 
 
     // Arguments simple
@@ -50,6 +51,9 @@ module.exports = async ({ client, parameters: [message]}) => {
             return arg.replace(RegExp(rdmQuoteArgs+"[0-9]+",'gmi'), match => quoteArgs[match.replace(rdmQuoteArgs,'')])
         })
     ;
+
+    let rawContent = message.content.replace(( regexMentionPrefix.test(content) ? regexMentionPrefix : prefix ), '').slice(command.length + 1);
+
     // ================================================================================================
     
     // ================================================================================================
@@ -130,7 +134,7 @@ module.exports = async ({ client, parameters: [message]}) => {
         // Restriction de channel
         if (userPermissionLevel < client.PERMISSION.ADMIN) {
             let { channelConfig } = GuildData.commands.find(cmd => cmd.name === CommandObject.name) || {};
-            console.inspect(channelConfig);
+
             if (channelConfig) {
                 if (channelConfig.mode === client.CONSTANT.CHANNEL_CONFIG.WHITELIST) if (channelConfig.whitelist.length > 0 && !channelConfig.whitelist.includes(message.channel.id)) return message.reply({ content: Locale.get("generic.error.channel.whitelist") }).then(m => Wait(5000).then(() => m.delete()));
                 if (channelConfig.mode === client.CONSTANT.CHANNEL_CONFIG.BLACKLIST) if (channelConfig.blacklist.includes(message.channel.id)) return message.reply({ content: Locale.get("generic.error.channel.blacklist") }).then(m => Wait(5000).then(() => m.delete())).catch(noop);
@@ -143,7 +147,7 @@ module.exports = async ({ client, parameters: [message]}) => {
             let softbanUser = commandBanInfo?.find(sbU => sbU.type === 'user' && sbU.id === message.author.id);
             if (softbanUser) {
                 if (softbanUser.endtimestamp > 0) {
-                    let timeRemain = softbanUser.endtimestamp - Date.time();
+                    let timeRemain = softbanUser.endtimestamp - Date.timestamp();
                     if (timeRemain > 0) {
                         if (softbanUser.reason) {
                             return message.reply({ content: Locale.get("generic.error.command.ban.temp", [softbanUser.reason, softbanUser.endtimestamp]) }).then(m => Wait(Math.min(timeRemain,20000)).then(() => m.delete())).catch(noop);
@@ -161,7 +165,7 @@ module.exports = async ({ client, parameters: [message]}) => {
             let bannedRoles = commandBanInfo?.find(sbU => sbU.type === 'role' && memberRoles.includes(sbU.id));
             if (bannedRoles) {
                 if (bannedRoles.endtimestamp > 0) {
-                    let timeRemain = bannedRoles.endtimestamp - Date.time();
+                    let timeRemain = bannedRoles.endtimestamp - Date.timestamp();
                     if (timeRemain > 0) {
                         if (bannedRoles.reason) {
                             return message.reply({ content: Locale.get("generic.error.command.ban.temp", [bannedRoles.reason, bannedRoles.endtimestamp]) }).then(m => Wait(Math.min(timeRemain,20000)).then(() => m.delete())).catch(noop);
@@ -179,7 +183,7 @@ module.exports = async ({ client, parameters: [message]}) => {
             if (banIndex !== -1) {
                 GuildData.commands[banIndex].ban.filter(banObj => {
                     if (banObj.endtimestamp > 0) {
-                        return banObj.endtimestamp - Date.time() > 0;
+                        return banObj.endtimestamp - Date.timestamp() > 0;
                     } else return true;
                 });
             }
@@ -188,16 +192,21 @@ module.exports = async ({ client, parameters: [message]}) => {
         }
 
         // Cooldown
-        let cooldown = new oldCooldown(CommandObject.name, message.author.id);
-        let cooldownFromBdd = UserData._cooldown.find(c => c.name === CommandObject.name);
-        if (cooldownFromBdd) {
-            let remain = cooldownFromBdd.timestamp - Date.time();
-            if (remain > 0) {
-                cooldown.set(remain);
-            } else {
-                UserData._cooldown = UserData._cooldown.filter(c => c.timestamp - Date.time() > 0);
-                await UserData.save();
+        let cooldown = new Cooldown({
+            name: CommandObject.name,
+            id: message.author.id
+        });
+
+        cooldown.setTimestamp(UserData.cooldown.get(cooldown.name) ?? 0);
+
+        for (let name of UserData.cooldown.keys()) {
+            if (UserData.cooldown.get(name) <= Date.timestamp()) {
+                UserData.cooldown.delete(name);
             }
+        }
+        
+        if (UserData.isModified('cooldown')) {
+            await UserData.save();
         }
 
         if (!cooldown.passed()) {
@@ -220,10 +229,10 @@ module.exports = async ({ client, parameters: [message]}) => {
 
         // Execute commande
         try {
-            await CommandObject.run({ client, message, prefix, command, args, userPermissionLevel, GuildData, UserData, LangToUse, cooldown });
+            await CommandObject.run({ client, message, raw: rawContent, prefix, command, args, userPermissionLevel, GuildData, UserData, LangToUse, cooldown });
         } catch (error) {
-            console.error(`[ ERROR : ${Date.time()} ]`,error);
-            await message.reply({ content: Locale.get('generic.error.command.internal_error', [Date.time()]), ephemeral: true }).catch(noop);
+            console.error(`[ ERROR : ${Date.timestamp()} ]`, error);
+            await message.reply({ content: Locale.get('generic.error.command.internal_error', [Date.timestamp()]), ephemeral: true }).catch(noop);
         }
     } else {
         if (Math.random() > 0.99) {

@@ -1142,7 +1142,7 @@ async function VentureCore({ discordElement, GuildData, UserData }) {
                                 this.data._option = option;
 
                                 this.data._game.history.push({
-                                    timestamp: Date.time(),
+                                    timestamp: Date.timestamp(),
                                     situation: situation.id,
                                     data: {inventory, stats, variables},
                                 });

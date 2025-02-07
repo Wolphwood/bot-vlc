@@ -7,7 +7,7 @@ const SchemaMentionnable = new Schema({type: String, id: String}, { _id : false 
 const SchemaSanction = new Schema({
 	type: String,
 	id: String,
-	timestamp: {type: Number, default: Date.time()},
+	timestamp: {type: Number, default: Date.timestamp()},
 	endtimestamp: {type: Number, default: 0},
 	reason: {type: String, default: null},
 	author: String
@@ -22,7 +22,6 @@ const SchemaGuildCommandConfig = new Schema({
 		blacklist: { type: [String], default: []},
 	},
 }, { _id : false });
-const SchemaUserCooldown = new Schema({name: String, timestamp: Number}, { _id : false });
 
 const SchemaGuild = new Schema({
 	id: String,
@@ -56,7 +55,6 @@ const SchemaUser = {
 		value: {type: Number, default: 0},
 		dailyLimit: {type: Number, default: 0},
 	},
-	_cooldown: {type: [ SchemaUserCooldown ], default: [null]},
 	cooldown: { type: Map, of: Number, default: {} }
 };
 

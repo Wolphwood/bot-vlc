@@ -25,10 +25,20 @@ exports.Sleep = function(time=1000) {
 }
 
 // [ Unix Time system ]
-Date.timestamp = function() { return new Date().getTime()/1000|0 };
-Date.prototype.getUnixTime = function() { return this.getTime()/1000|0 };
-Date.now = function() { return new Date(); }
-Date.time = function() { return Date.now().getUnixTime(); }
+Date.timestamp = function(v = 1000) {
+	return Math.floor(new Date().getTime()/Math.max(1,v));
+};
+Date.prototype.getUnixTime = function() {
+	console.warn('Date.getUnixTime is deprecated, use Date.timestamp instead')
+	return this.getTime()/1000|0
+};
+Date.now = function() {
+	return new Date();
+}
+Date.time = function() {
+	console.warn('Date.time is deprecated, use Date.timestamp instead')
+	return Date.now().getUnixTime();
+}
 
 function strToSec(str='') {
     return str.match(/[0-9]+[A-z]/g)?.reduce((a, b) => a + Number(b.replace(/[A-z]/g,'')) * (

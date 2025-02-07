@@ -124,7 +124,7 @@ module.exports = async ({client, parameters:[logdata]}) => {
         target,
         author: author || client.user.id,
         data,
-        timestamp: Date.time(),
+        timestamp: Date.timestamp(),
         reason: reason || client.CONSTANT.LOG[type].reason || "¯\\_(ツ)_/¯",
     });
     await Log.save();

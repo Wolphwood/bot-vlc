@@ -33,7 +33,7 @@ function getEmbed({ client, msg, message, interaction }) {
         .setDescription([
             "**Server**: `" + (msg.createdTimestamp - (message||interaction).createdTimestamp) + "ms`",
             "**API**: `" + (client.ws.ping) + "ms`",
-            "**Uptime**: \u200b" + "<t:"+ (Date.time() - Math.round(client.uptime/1000)) +":R> "
+            "**Uptime**: \u200b" + "<t:"+ (Date.timestamp() - Math.round(client.uptime/1000)) +":R> "
         ].join("\n"))
         .setColor(Array.from(Array(3), () => getRandomRangeFloor(127,255)))
         .setFooter({ text: `${client.user.username} v${client.config.version}` })

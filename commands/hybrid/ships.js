@@ -676,7 +676,12 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             },
                             {
                                 label: "Editeurs",
-                                action: "noop"
+                                action: function() {
+                                    this.data.ships[this.data._edit.index] = ship;
+
+                                    this.goto('ship-edit-editors');
+                                    return true;
+                                }
                             },
                         ],
                         [
@@ -881,7 +886,132 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                         ],
                     ];
                 },
-            }
+            },
+            {
+                name: 'ship-edit-editors',
+                beforeUpdate: function() {
+                    let { selectpage } = this.data._edit;
+                    let ship = this.data.ships[this.data._edit.index];
+                    
+                    this.data._edit.selectpage = selectpage ?? 0;
+                },
+                embeds: function() {
+                    return this.pages.find(page => page.name == 'ship-edit')?.embeds.apply(this, arguments);
+                },
+                components: function() {
+                    let ship = this.data.ships[this.data._edit.index];
+
+                    let EditorsPages = ship.editors.unique().chunkOf(25);
+                    
+                    let hasMultiplePages = EditorsPages.length > 1
+
+                    return [
+                        [
+                            {
+                                label: "Ajouter",
+                                action: async function(interaction) {
+                                    if (!this.members.includes(interaction.user.id)) return false;
+                                    interaction.deferUpdate();
+
+                                    let allowedMembers = this.pages[this.page]?.allowedMembers ?? [];
+
+                                    const filter = (collect) => {
+			                            if (![...this.members, ...allowedMembers].includes(interaction.user.id)) return false;
+                                        return this.members.includes(collect.author.id) && collect.mentions.users.keys().array().length > 0;
+                                    }
+
+                                    let instruction = await interaction.channel.send({
+                                        content: `_${interaction.user} Mentionnez touts les utilisateurs supplémentaire qui auront accès à la modification de ce ship._`
+                                    });
+                                    let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).then(c => c).catch(() => null);
+                                    
+                                    instruction.delete();
+
+                                    await collected.values().array().flatMap(async (collect) => {
+                                        let ids = collect.mentions.users.keys().array();
+                                        
+                                        ship.editors = [...ship.editors, ...ids].unique();
+
+                                        collect.delete();
+                                    }).promise();
+
+                                    return true;
+                                }
+                            },
+                            {
+                                label: "Supprimer",
+                                action: async function() {
+                                    ship.editors = ship.editors.filter(e => e !== this.data._edit.selectedEditor);
+                                    this.data._edit.selectedEditor = null;
+                                    return true;
+                                },
+                                disabled: typeof this.data._edit.selectedEditor !== 'string'
+                            },
+                        ],
+                        [
+                            {
+                                type: ComponentType.StringSelect,
+                                placeholder: "Selection d'un editeur",
+                                options: ship.editors.length > 0
+                                    ? EditorsPages[this.data._edit.selectpage].map((editor, index) => ({
+                                        label: `${(index + 1) + (this.data._edit.selectpage * 25)}. ${ResolveUser(editor)}`,
+                                        value: editor,
+                                        default: editor === this.data._edit.selectedEditor
+                                    }))
+                                    : [{ label: "Aucun editeur selectionnable", value: "missingno", default: true }]
+                                ,
+                                action: function(interaction) {
+                                    this.data._edit.selectedEditor = interaction.values[0];
+                                    return true;
+                                },
+                            }
+                        ],
+                        [
+                            {
+                                emoji: Emotes.GetEmojiObject(Emotes.chevron.black.left.simple),
+                                label: "\u200b",
+                                action: function() {
+                                    this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) - 1, 0, EditorsPages.length - 1);
+                                    return true;
+                                },
+                                disabled: !hasMultiplePages || this.data._edit.selectpage < 1
+                            },
+                            {
+                                label: `${this.data._edit.selectpage + 1}/${EditorsPages.length}`,
+                                action: async function(interaction) {
+                                    let modal = new ModalForm({ title: "Aller à la page", time: 120_000 })
+                                        .addRow().addTextField({ name: 'number', label: "Numéro de la page", placeholder: (this.data._edit.selectpage ?? 0) + 1 })
+                                    ;
+                                    
+                                    let result = await modal.setInteraction(interaction).popup();
+                                    if (!result || isNaN(result.get('number'))) return false;
+    
+                                    this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) + 1, 0, EditorsPages.length - 1);
+    
+                                    return true;
+                                },
+                                style: ButtonStyle.Secondary,
+                                disabled: !hasMultiplePages
+                            },
+                            {
+                                emoji: Emotes.GetEmojiObject(Emotes.chevron.black.right.simple),
+                                label: "\u200b",
+                                action: function() {
+                                    this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) + 1, 0, EditorsPages.length - 1);
+                                    return true;
+                                },
+                                disabled: !hasMultiplePages || this.data._edit.selectpage >= EditorsPages.lastIndex
+                            },
+                        ],
+                        [
+                            {
+                                label: "Retour",
+                                action: "goto:ship-edit"
+                            },
+                        ],
+                    ];
+                },
+            },
         ]
     });
     

@@ -5,7 +5,11 @@ global.loadedModules.events.push({
 });
 // ========================================================================== //
 
+const fs = require('fs');
 const { ApplicationCommandType, ApplicationCommandOptionType, ChannelType } = require('discord.js');
+const { Cooldown } = require('../modules/Cooldown');
+
+const { noop } = require('../modules/functions/Utils');
 
 module.exports = async ({client, parameters: [interaction]}) => {
     if (interaction.isCommand()) { // Est une commande
@@ -26,7 +30,9 @@ module.exports = async ({client, parameters: [interaction]}) => {
         if (interaction.user.id === '291981170164498444') userPermissionLevel = client.PERMISSION.ROOT;
         // ================================================================================================
         
-        console.log(`{SLASH} ${interaction.member.user.tag} (${interaction.id}) from ${interaction.channel.type !== ChannelType.DM ? 'Direct Message' : (interaction.guild.name + ` (${interaction.guild.id})`)} : ${interaction.command?.name}`, interaction.options.data);
+        console.debug(interaction.channel.type)
+
+        console.log(`{SLASH} ${interaction.member.user.tag} (${interaction.id}) from ${interaction.channel.type === ChannelType.DM ? 'Direct Message' : (interaction.guild.name + ` (${interaction.guild.id})`)} : ${interaction.command?.name}`, interaction.options.data);
 
         try {
             if (CommandObject) {
@@ -103,7 +109,7 @@ module.exports = async ({client, parameters: [interaction]}) => {
                     let softbanUser = commandBanInfo?.find(sbU => sbU.type === 'user' && sbU.id === interaction.member.id);
                     if (softbanUser) {
                         if (softbanUser.endtimestamp > 0) {
-                            let timeRemain = softbanUser.endtimestamp - Date.time();
+                            let timeRemain = softbanUser.endtimestamp - Date.timestamp();
                             if (timeRemain > 0) {
                                 if (softbanUser.reason) {
                                     return interaction.reply({ content: Locale.get("generic.error.command.ban.temp", [softbanUser.reason, softbanUser.endtimestamp]), ephemeral: true });
@@ -121,7 +127,7 @@ module.exports = async ({client, parameters: [interaction]}) => {
                     let bannedRoles = commandBanInfo?.find(sbU => sbU.type === 'role' && memberRoles.includes(sbU.id));
                     if (bannedRoles) {
                         if (bannedRoles.endtimestamp > 0) {
-                            let timeRemain = bannedRoles.endtimestamp - Date.time();
+                            let timeRemain = bannedRoles.endtimestamp - Date.timestamp();
                             if (timeRemain > 0) {
                                 if (bannedRoles.reason) {
                                     return interaction.reply({ content: Locale.get("generic.error.command.ban.temp", [bannedRoles.reason, bannedRoles.endtimestamp]), ephemeral: true });
@@ -139,7 +145,7 @@ module.exports = async ({client, parameters: [interaction]}) => {
                     if (banIndex !== -1) {
                         GuildData.commands[banIndex].ban.filter(banObj => {
                             if (banObj.endtimestamp > 0) {
-                                return banObj.endtimestamp - Date.time() > 0;
+                                return banObj.endtimestamp - Date.timestamp() > 0;
                             } else return true;
                         });
                     }
@@ -148,16 +154,21 @@ module.exports = async ({client, parameters: [interaction]}) => {
                 }
 
                 // Cooldown
-                let cooldown = new oldCooldown(CommandObject.name, interaction.member.id);
-                let cooldownFromBdd = UserData?.cooldown?.find(c => c.name === CommandObject.name);
-                if (cooldownFromBdd) {
-                    let remain = cooldownFromBdd.timestamp - Date.time();
-                    if (remain > 0) {
-                        cooldown.set(remain);
-                    } else {
-                        UserData._cooldown = UserData._cooldown.filter(c => c.timestamp - Date.time() > 0);
-                        await UserData.save();
+                let cooldown = new Cooldown({
+                    name: CommandObject.name,
+                    id: interaction.member.id
+                });
+
+                cooldown.setTimestamp(UserData.cooldown.get(cooldown.name) ?? 0);
+
+                for (let name of UserData.cooldown.keys()) {
+                    if (UserData.cooldown.get(name) <= Date.timestamp()) {
+                        UserData.cooldown.delete(name);
                     }
+                }
+                
+                if (UserData.isModified('cooldown')) {
+                    await UserData.save();
                 }
 
                 if (!cooldown.passed()) {
@@ -178,8 +189,15 @@ module.exports = async ({client, parameters: [interaction]}) => {
                 await CommandObject.run({ client, interaction, command, args, GuildData, UserData, LangToUse, cooldown, userPermissionLevel});
             } else await interaction.reply({ content: Locale.get('generic.error.slash.unavailable'), ephemeral: true });
         } catch (error) {
-            console.error(`[ ERROR : ${Date.time()} ]`,error);
-            await interaction[interaction.deferred ? 'editReply' : 'reply']({ content: Locale.get('generic.error.slash.internal_error',[Date.time()]), ephemeral: true });
+            console.error(`[ ERROR : ${Date.timestamp(1)} ]`, error);
+
+            if (!fs.existsSync('./logs/errors/slash')) {
+                fs.mkdirSync('./logs/errors/slash', { recursive: true });
+            }
+
+            fs.appendFileSync(`./logs/errors/slash/${Date.timestamp(1)}.txt`, Object.getOwnPropertyNames(error).map(k => error[k]).join(''));
+
+            await interaction[interaction.deferred ? 'editReply' : 'reply']({ content: Locale.get('generic.error.slash.internal_error',[Date.timestamp()]), ephemeral: true });
         }
     }
 }

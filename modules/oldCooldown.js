@@ -1,6 +1,6 @@
 // ========================================================================== //
 global.loadedModules.modules.push({
-    name: "Cooldown",
+    name: "Cooldown (Deprecated)",
     version: "3.2",
     details: [
         'module.purge',
@@ -29,6 +29,8 @@ const purgeInterval = setInterval(purge, 5*60*1000);
 class Cooldown {
 	cldwn;id;value;
 	constructor(cldwn,id){
+		console.warn("Cooldown 3.2 is deprecated, 4.0 have breaking changes.");
+
 		if (typeof id === 'undefined') {throw 'INVALID_COOLDOWN_ID';}
 		
 		if (!Cooldown.cooldown[cldwn]) Cooldown.cooldown[cldwn] = {};

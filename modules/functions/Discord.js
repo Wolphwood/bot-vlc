@@ -264,7 +264,7 @@ exports.DiscordMenu = class DiscordMenu {
 	async send() {
 		if (this.sent) throw new BotError("This menu is already sent.");
 
-		this.uid = this.element.id +'_'+ Date.time();
+		this.uid = this.element.id +'_'+ Date.timestamp();
 
 		let skip = this.beforeUpdate.apply(this, []);
 		if (skip) return;
@@ -443,7 +443,7 @@ exports.ModalForm = class ModalForm {
 	}
 
 	#buildModal() {
-		const uid = this.interaction.id +'_'+ Date.time();
+		const uid = this.interaction.id +'_'+ Date.timestamp();
 		
 		return {
 			uid,
@@ -575,7 +575,7 @@ exports.ModalForm = class ModalForm {
 				if (!entries) return null;
 				return new Collection(entries);
 			} catch(err) {
-				console.error(`[ MODAL-ERROR : ${Date.time()} ]`, err);
+				console.error(`[ MODAL-ERROR : ${Date.timestamp()} ]`, err);
         		return null;
 			}
 		}
