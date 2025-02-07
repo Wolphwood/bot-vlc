@@ -4,7 +4,7 @@ const fetch = (...args) =>
   import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const API = "https://catfact.ninja/";
-const IMAGE_API = "https://cataas.com/";
+const IMAGE_API = "https://cataas.com";
 
 client.APIs.push({ name: "Cat Fact", link: API });
 client.APIs.push({ name: "Cat as a service", link: IMAGE_API });
@@ -49,10 +49,16 @@ module.exports = {
             case "i":
                 try {
                     // CALL API
-                    response = await fetch(IMAGE_API + "cat" + "?json=true");
+                    response = await fetch(`${IMAGE_API}/cat`, {
+                        headers: {
+                          'Accept': 'application/json'
+                        }
+                      });
                 } catch {}
 
                 if (response?.status !== 200) { // Handle API's failures
+                    console.inspect(response)
+
                     discordElement.reply({
                         content: Locale.get("command.cat.error.api.cataas.failure"),
                     }).then(m => {
@@ -65,7 +71,8 @@ module.exports = {
 
                 embed = new EmbedBuilder()
                     .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
-                    .setImage(`${IMAGE_API}/cat/${data._id}`)
+                    .setDescription(`_Due à un problème avec l'api,\nle système de selection ne fonctionne pas\net l'image est 100% aléatoire et peut être buguée_`)
+                    .setImage(`${IMAGE_API}/cat`)
                     .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
                     .setTimestamp()
                 ;
@@ -74,35 +81,41 @@ module.exports = {
                 if (message) message.channel.send({ embeds: [ embed ] });
             break;
 
-            // Embeded Gif are broken
-            // case "gif":
-            // case "g":
-            //     try {
-            //         // CALL API
-            //         response = await fetch(`${IMAGE_API}/cat/gif?json=true`);
-            //     } catch {}
+            // Embeded Gif are broken?
+            case "gif":
+            case "g":
+                discordElement.reply({
+                    content: "Due to an error with the API, gif doesn't work.",
+                }).then(m => {
+                    if (message) Wait(5_000).then(() => m.delete());
+                });
 
-            //     if (response?.status !== 200) { // Handle API's failures
-            //         discordElement.reply({
-            //             content: Locale.get("command.cat.error.api.cataas.failure"),
-            //         }).then(m => {
-            //             if (message) Wait(5_000).then(() => m.delete());
-            //         });
-            //         return false;
-            //     }
+                // try {
+                //     // CALL API
+                //     response = await fetch(`${IMAGE_API}/cat/gif?json=true`);
+                // } catch {}
 
-            //     data = await response.json();
+                // if (response?.status !== 200) { // Handle API's failures
+                //     discordElement.reply({
+                //         content: Locale.get("command.cat.error.api.cataas.failure"),
+                //     }).then(m => {
+                //         if (message) Wait(5_000).then(() => m.delete());
+                //     });
+                //     return false;
+                // }
 
-            //     embed = new EmbedBuilder()
-            //         .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
-            //         .setImage(`${IMAGE_API}/cat/${data._id}`)
-            //         .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
-            //         .setTimestamp()
-            //     ;
+                // data = await response.json();
 
-            //     if (interaction) interaction.reply({ embeds: [ embed ] });
-            //     if (message) message.channel.send({ embeds: [ embed ] });
-            // break;
+                // embed = new EmbedBuilder()
+                //     .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
+                //     .setImage(`${IMAGE_API}/cat/${data._id}`)
+                //     .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
+                //     .setTimestamp()
+                // ;
+
+                // if (interaction) interaction.reply({ embeds: [ embed ] });
+                // if (message) message.channel.send({ embeds: [ embed ] });
+            break;
             
             case "fact":
             case "anecdote":
