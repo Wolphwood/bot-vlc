@@ -72,7 +72,7 @@ module.exports = {
                 embed = new EmbedBuilder()
                     .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
                     .setDescription(`_Due à un problème avec l'api,\nle système de selection ne fonctionne pas\net l'image est 100% aléatoire et peut être buguée_`)
-                    .setImage(`${IMAGE_API}/cat`)
+                    .setImage(`${IMAGE_API}/cat?t=${Date.timestamp(0)}${discordElement.id}${discordElement.member.id}`)
                     .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
                     .setTimestamp()
                 ;
