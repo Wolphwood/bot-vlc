@@ -164,10 +164,10 @@ const SchemaVenture = {
 const SchemaShip = {
 	uid: { type: String, required: true },
 	guild: String,
-	name: String,
 	author: String,
 	votes: { type: Number, default: 0 },
 	editors: { type: Array, default: [] },
+	universes: { type: Array, default: [] },
 	characters: { type: Array, default: [] },
 	type: { type: String, default: 'fictif' },
 	image: String

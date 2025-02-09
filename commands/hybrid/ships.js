@@ -210,7 +210,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
             idle: 2 * 60 * 60 * 1000 
         },
         data: {
-            types: { canon: "Ship canon", fanon: `Ship fanon` },
+            types: { canon: "Ship canon", fanon: "Ship fanon", crack: "Crack Ships", crossover: "Crossover Ships" },
             userPermissionLevel,
             ships: Ships,
             _view: {},
@@ -224,10 +224,10 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                 embeds: function() {
                     return [{
                         title: "Ship manager",
-                        description: `Oui.`,
+                        description: "Un *ship* est une relation imaginée ou confirmée entre deux personnages, souvent d’une œuvre de fiction.\nQue ce soit un couple officiel (*canon*) ou une création de fans (*fanon*), les ships permettent d’explorer des dynamiques inédites à travers discussions, fanfictions et fanarts.\nCertains ships sont populaires et consensuels, d’autres plus inattendus (*crack ships*), mais tous reflètent l’attachement des fans à leurs personnages favoris.\nQue tu sois ici pour partager tes OTP (One True Pairings) ou découvrir de nouvelles associations, amuse-toi et respecte les goûts de chacun ! 🚢💖",
                         fields: [
                             {
-                                name: "Ships ",
+                                name: "Ships",
                                 value: `Il existe ${this.data.ships.length} ships !`,
                             }
                         ],
@@ -263,12 +263,18 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             },
                         ],
                         [
+                            {
+                                emoji: "🥇",
+                                label: "Voir le top",
+                                action: "goto:ship-top"
+                            },
+                        ],
+                        [
                             { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
                         ]
                     ]
                 }
             },
-
             {
                 name: "ship-view",
                 beforeUpdate: function() {
@@ -378,7 +384,34 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     ];
                 }
             },
+            {
+                name: "ship-top",
+                embeds: function() {
+                    let ships = this.data.ships;
 
+                    let nVotes = ships.map(s => s.votes).unique().sort();
+
+                    return [{
+                        title: "Top 10 Ship !",
+                        fields: nVotes.map((value, index) => {
+                            let s = ships.filter(s => s.votes === value);
+
+                            return {
+                                name: `${['🥇','🥈','🥉'][index] ?? ''} Top ${index + 1}`.trim(),
+                                value: s.map(s => "`["+ s.uid +"]`" + '\u2000' + s.characters.join(' + ')).join('\n')
+                            };
+                        }),
+                        color: 0x5865F2,
+                    }];
+                },
+                components: function() {
+                    return [
+                        [
+                            { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
+                        ]
+                    ];
+                }
+            },
             {
                 name: "ship-search",
                 beforeUpdate: function() {
@@ -462,7 +495,6 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     ]
                 }
             },
-
             {
                 name: 'ship-manage',
                 beforeUpdate: function() {
@@ -507,7 +539,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                         [
                             {
                                 emoji: "➕",
-                                label: "Ajout",
+                                label: "Ajouter",
                                 action: async function() {    
                                     let newship = await Manager.ships.create({
                                         guild: GuildData.id,
@@ -526,6 +558,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 },
                             },
                             {
+                                emoji: '✏',
                                 label: "Modifier",
                                 action: async function() {
                                     this.data._edit.index = this.data._manage.selectedIndex;
@@ -536,6 +569,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 disabled: typeof this.data._manage.selectedIndex !== 'number'
                             },
                             {
+                                emoji: '🗑️',
                                 label: "Supprimer",
                                 action: async function() {
                                     let {guild, uid} = this.data.ships[this.data._manage.selectedIndex];
@@ -615,7 +649,6 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     ]
                 }
             },
-
             {
                 name: "ship-edit",
                 beforeUpdate: function() {
@@ -646,6 +679,11 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 inline: true,
                             },
                             {
+                                name: "Univers",
+                                value: ship.universes.length > 0 ? ship.universes.map((c,i) => `${i + 1}. ${c}`).join('\n') : '\u200b',
+                                inline: true,
+                            },
+                            {
                                 name: "Type de couple",
                                 value: this.data.types[ship.type] ?? 'Unknown',
                                 inline: true,
@@ -668,17 +706,20 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             {
                                 label: "Personnages",
                                 action: function() {
-                                    this.data.ships[this.data._edit.index] = ship;
-
                                     this.goto('ship-edit-characters');
+                                    return true;
+                                }
+                            },
+                            {
+                                label: "Univers",
+                                action: function() {
+                                    this.goto('ship-edit-universes');
                                     return true;
                                 }
                             },
                             {
                                 label: "Editeurs",
                                 action: function() {
-                                    this.data.ships[this.data._edit.index] = ship;
-
                                     this.goto('ship-edit-editors');
                                     return true;
                                 }
@@ -739,8 +780,16 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     return true;
                                 }
                             },
+                            {
+                                emoji: '❔',
+                                action: "goto:ship-type-info"
+                            },
                         ],
                         [
+                            {
+                                label: "Retour",
+                                action: "goto:ship-manage"
+                            },
                             {
                                 emoji: "💾",
                                 label: "Save",
@@ -752,13 +801,42 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     return false
                                 }
                             },
-                            {
-                                label: "Retour",
-                                action: "goto:ship-manage"
-                            },
                         ],
                     ]
                 }
+            },
+            {
+                name: "ship-type-info",
+                embeds: [{
+                    title: "Les Types de Ships",
+                    fields: [
+                        {
+                            name: "Canon Ships",
+                            value: "Relations officielles établies dans l’histoire (ex. Naruto x Hinata)"
+                        },
+                        {
+                            name: "Fanon Ships",
+                            value: "Relations imaginées par les fans (ex. Harry x Draco)"
+                        },
+                        {
+                            name: "Crack Ships",
+                            value: "Paires improbables, souvent humoristiques (ex. Voldemort x Chaussette)"
+                        },
+                        {
+                            name: "Crossover Ships",
+                            value: "Couples entre personnages d’univers différents (ex. Elsa x Jack Frost)"
+                        },
+                    ],
+                    color: 0x5865F2,
+                }],
+                components: [
+                    [
+                        {
+                            label: "Retour",
+                            action: "goto:ship-edit"
+                        }
+                    ]
+                ]
             },
             {
                 name: 'ship-edit-characters',
@@ -771,6 +849,9 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                 embeds: function() {
                     return this.pages.find(page => page.name == 'ship-edit')?.embeds.apply(this, arguments);
                 },
+                files: function() {
+                    return this.pages.find(page => page.name == 'ship-edit')?.files.apply(this, arguments);
+                },
                 components: function() {
                     let ship = this.data.ships[this.data._edit.index];
 
@@ -781,6 +862,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     return [
                         [
                             {
+                                emoji: "➕",
                                 label: "Ajouter",
                                 action: async function(interaction) {
                                     let modal = new ModalForm({ title: "Modification", time: 120_000 })
@@ -792,12 +874,11 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
 
                                     ship.characters.push(result.get('name'));
 
-                                    console.inspect(ship.characters)
-
                                     return true;
                                 }
                             },
                             {
+                                emoji: '✏',
                                 label: "Modifier",
                                 action: async function(interaction) {
                                     let modal = new ModalForm({ title: "Modification", time: 120_000 })
@@ -814,6 +895,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 disabled: typeof this.data._edit.selectedIndex !== 'number'
                             },
                             {
+                                emoji: '🗑️',
                                 label: "Supprimer",
                                 action: async function() {
                                     ship.characters = ship.characters.filter((e,i) => i !== this.data._edit.selectedIndex);
@@ -898,6 +980,9 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                 embeds: function() {
                     return this.pages.find(page => page.name == 'ship-edit')?.embeds.apply(this, arguments);
                 },
+                files: function() {
+                    return this.pages.find(page => page.name == 'ship-edit')?.files.apply(this, arguments);
+                },
                 components: function() {
                     let ship = this.data.ships[this.data._edit.index];
 
@@ -908,6 +993,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     return [
                         [
                             {
+                                emoji: "➕",
                                 label: "Ajouter",
                                 action: async function(interaction) {
                                     if (!this.members.includes(interaction.user.id)) return false;
@@ -939,6 +1025,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 }
                             },
                             {
+                                emoji: '🗑️',
                                 label: "Supprimer",
                                 action: async function() {
                                     ship.editors = ship.editors.filter(e => e !== this.data._edit.selectedEditor);
@@ -1001,6 +1088,139 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     return true;
                                 },
                                 disabled: !hasMultiplePages || this.data._edit.selectpage >= EditorsPages.lastIndex
+                            },
+                        ],
+                        [
+                            {
+                                label: "Retour",
+                                action: "goto:ship-edit"
+                            },
+                        ],
+                    ];
+                },
+            },            
+            {
+                name: 'ship-edit-universes',
+                beforeUpdate: function() {
+                    let { selectpage } = this.data._edit;
+                    
+                    
+                    this.data._edit.selectpage = selectpage ?? 0;
+                },
+                embeds: function() {
+                    return this.pages.find(page => page.name == 'ship-edit')?.embeds.apply(this, arguments);
+                },
+                files: function() {
+                    return this.pages.find(page => page.name == 'ship-edit')?.files.apply(this, arguments);
+                },
+                components: function() {
+                    let ship = this.data.ships[this.data._edit.index];
+
+                    let UniversesPages = ship.universes.unique().chunkOf(25);
+                    
+                    let hasMultiplePages = UniversesPages.length > 1
+
+                    return [
+                        [
+                            {
+                                emoji: "➕",
+                                label: "Ajouter",
+                                action: async function(interaction) {
+                                    let modal = new ModalForm({ title: "Ajout d'un nouvel univers", time: 120_000 })
+                                        .addRow().addTextField({ name: 'name', label: "Nom de l'univers", placeholder: "Voice Line City" });
+                                    ;
+
+                                    let result = await modal.setInteraction(interaction).popup();
+                                    if (!result) return false;
+
+                                    if (ship.universes.some(universe => universe.toLowerCase().simplify() === result.get('name').toLowerCase().simplify())) return false;
+
+                                    ship.universes.push(result.get('name'));
+
+                                    return true;
+                                }
+                            },
+                            {
+                                emoji: '✏',
+                                label: "Modifier",
+                                action: async function(interaction) {
+                                    let modal = new ModalForm({ title: "Modification", time: 120_000 })
+                                        .addRow().addTextField({ name: 'name', label: "Nom de l'univers", placeholder: "Voice Line City", value: ship.characters[this.data._edit.selectedIndex] });
+                                    ;
+
+                                    let result = await modal.setInteraction(interaction).popup();
+                                    if (!result) return false;
+
+                                    ship.universes[this.data._edit.selectedUniverse] = result.get('name');
+
+                                    return true;
+                                },
+                                disabled: typeof this.data._edit.selectedUniverse !== 'number'
+                            },
+                            {
+                                emoji: '🗑️',
+                                label: "Supprimer",
+                                action: async function() {
+                                    ship.universes = ship.universes.filter((e,i) => i !== this.data._edit.selectedUniverse);
+                                    this.data._edit.selectedUniverse = null;
+                                    return true;
+                                },
+                                disabled: typeof this.data._edit.selectedUniverse !== 'number'
+                            },
+                        ],
+                        [
+                            {
+                                type: ComponentType.StringSelect,
+                                placeholder: "Selection d'un editeur",
+                                options: ship.universes.length > 0
+                                    ? UniversesPages[this.data._edit.selectpage].map((universe, index) => ({
+                                        label: `${(index + 1) + (this.data._edit.selectpage * 25)}. ${universe}`,
+                                        value: ''+ index + (this.data._edit.selectpage * 25),
+                                        default: universe === this.data._edit.selectedUniverse
+                                    }))
+                                    : [{ label: "Aucun editeur selectionnable", value: "missingno", default: true }]
+                                ,
+                                action: function(interaction) {
+                                    this.data._edit.selectedUniverse = Number(interaction.values[0]);
+                                    return true;
+                                },
+                            }
+                        ],
+                        [
+                            {
+                                emoji: Emotes.GetEmojiObject(Emotes.chevron.black.left.simple),
+                                label: "\u200b",
+                                action: function() {
+                                    this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) - 1, 0, UniversesPages.length - 1);
+                                    return true;
+                                },
+                                disabled: !hasMultiplePages || this.data._edit.selectpage < 1
+                            },
+                            {
+                                label: `${this.data._edit.selectpage + 1}/${UniversesPages.length}`,
+                                action: async function(interaction) {
+                                    let modal = new ModalForm({ title: "Aller à la page", time: 120_000 })
+                                        .addRow().addTextField({ name: 'number', label: "Numéro de la page", placeholder: (this.data._edit.selectpage ?? 0) + 1 })
+                                    ;
+                                    
+                                    let result = await modal.setInteraction(interaction).popup();
+                                    if (!result || isNaN(result.get('number'))) return false;
+    
+                                    this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) + 1, 0, UniversesPages.length - 1);
+    
+                                    return true;
+                                },
+                                style: ButtonStyle.Secondary,
+                                disabled: !hasMultiplePages
+                            },
+                            {
+                                emoji: Emotes.GetEmojiObject(Emotes.chevron.black.right.simple),
+                                label: "\u200b",
+                                action: function() {
+                                    this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) + 1, 0, UniversesPages.length - 1);
+                                    return true;
+                                },
+                                disabled: !hasMultiplePages || this.data._edit.selectpage >= UniversesPages.lastIndex
                             },
                         ],
                         [
