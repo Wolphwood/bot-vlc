@@ -1,7 +1,7 @@
 module.exports = {
 	prefix: "w.",
 	token: "BOT_TOKEN",
-	version: "0.3.1",
+	version: "0.4",
 	owners: [
 		"291981170164498444",
 	],
