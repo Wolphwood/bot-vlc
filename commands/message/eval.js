@@ -60,15 +60,15 @@ const CommandObject = {
 
         try {
             // Get output
-            if (args.get(0).startsWith('```') && args.get(-1).endsWith('```')) { args.pop(); args.shift(); }
-            if (raw.startsWith('```') && raw.endsWith('```')) raw = raw.slice(raw.indexOf(args[0]),-3).trim();
+            if (args.get(0)?.startsWith('```') && args.get(-1)?.endsWith('```')) { args.pop(); args.shift(); }
+            if (raw?.startsWith('```') && raw?.endsWith('```')) raw = raw.slice(raw.indexOf(args[0]),-3).trim();
 
             inspectResult = util.inspect(await eval("(async () => {" + args.join(' ').replace(/console/gm, 'Logger') + "})()"));
 
             // Add short result
             embed.addFields([{
                 name: 'Input :',
-                value: ['```js', raw, '```'].join('\n')
+                value: ['```js', raw || '\u2000', '```'].join('\n')
             }]);
             
             if (logs.length > 0) {
@@ -86,7 +86,7 @@ const CommandObject = {
             }
 
             // Create long result
-            if (inspectResult.length > 1000 || logs.join('\n').length > 1000) {
+            if (inspectResult?.length > 1000 || logs.join('\n').length > 1000) {
                 let content = [
                     "# Input",
                     raw || 'N/A',
@@ -114,7 +114,7 @@ const CommandObject = {
         }
 
         await message.channel.send({ embeds: [ embed ] });
-        if (inspectResult.length > 1000 || logs.join('\n').length > 1000) await message.channel.send({ files: [ `${filePath}\\${filename}` ] });
+        if (inspectResult?.length > 1000 || logs.join('\n').length > 1000) await message.channel.send({ files: [ `${filePath}\\${filename}` ] });
     }
 };
 

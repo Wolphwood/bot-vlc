@@ -196,7 +196,7 @@ function SortByName(a,b) {
 
 const ResolveUser = function(o) {
     let user = client.users.resolve(o);
-    return user?.globalName || user?.username || `Unknown Username`;
+    return user?.globalName || user?.username || null;
 }
 
 async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLevel }) {
@@ -210,6 +210,40 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
             idle: 2 * 60 * 60 * 1000 
         },
         data: {
+            methods: {
+                getRandomCancelationPassword(count = 3) {
+                    const motsAnnulation = ["Stop", "Fin", "Non", "Rien", "Skip", "Vide", "Annule", "Pass", "Sors", "Zéro", "Oublie", "Ferme", "Fini", "Halt"];
+
+                    const shuffle = motsAnnulation.sort(() => 0.5 - Math.random());
+                    return shuffle.slice(0, count).join(""); // Prend 3 mots aléatoires et les concatène
+                },
+                editEditorsCancelLegOwnership() {
+                    if (this.data._edit.__giveOwnershipMessage !== null) {
+                        this.data._edit.__giveOwnershipMessage?.delete().catch(noop);
+                        this.data._edit.__giveOwnershipMessage = null;
+                    }
+
+                    if (this.data._edit.__giveOwnership !== null) {
+                        clearTimeout(this.data._edit.__giveOwnership);
+                        this.data._edit.__giveOwnership = null;
+                    }
+
+                    this.data._edit.__giveOwnershipInteraction = false;
+                },
+                manageDeleteCancel() {
+                    if (this.data._manage._deleteConfirm !== null) {
+                        this.data._manage._deleteConfirm?.delete().catch(noop);
+                        this.data._manage._deleteConfirm = null;
+                    }
+
+                    if (this.data._manage._deleteConfirmTimeout !== null) {
+                        clearTimeout(this.data._manage._deleteConfirmTimeout);
+                        this.data._manage._deleteConfirmTimeout = null;
+                    }
+
+                    this.data._manage._deleteConfirmInteraction = false;
+                },
+            },
             types: { canon: "Ship canon", fanon: "Ship fanon", crack: "Crack Ships", crossover: "Crossover Ships" },
             userPermissionLevel,
             ships: Ships,
@@ -321,7 +355,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             url: attachment ? `attachment://${attachment.name}` : NotAvailableDefaultImage
                         },
                         footer: {
-                            text: `Ship créer par ${ResolveUser(ship.author)}`
+                            text: `Ship créer par ${ResolveUser(ship.author) ?? 'Unknown'}`
                         },
                         color: 0x5865F2,
                     }];
@@ -407,7 +441,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                 components: function() {
                     return [
                         [
-                            { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
+                            { emoji: '🏠', label: "Home", action: "goto:home", style: ButtonStyle.Secondary },
                         ]
                     ];
                 }
@@ -500,8 +534,11 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                 beforeUpdate: function() {
                     let { selectpage } = this.data._manage ?? {};
 
+                    if (!this.data._manage._deleteConfirmInteraction) this.methods.manageDeleteCancel();
+                    this.data._manage._deleteConfirmInteraction = false;
+
                     this.data._manage.allowedToManage = this.data.ships.filter(ship => {
-                        return this.data.userPermissionLevel >= client.PERMISSION.GUILD_MOD || ship.author === this.element.member.id || ship.editors.include(this.element.member.id);
+                        return this.data.userPermissionLevel >= client.PERMISSION.GUILD_MOD || ship.author === this.element.member.id || ship.editors.includes(this.element.member.id);
                     });
 
                     this.data._manage.selectpage = selectpage ?? 0;
@@ -527,13 +564,16 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     ]
                 },
                 components: function() {
+                    let ship = this.data.ships[this.data._manage.selectedIndex];
+                    
                     let AllowedShips = this.data._manage.allowedToManage;
                     let ShipsPages = AllowedShips.chunkOf(25);
 
                     let hasAnyPages = ShipsPages.length > 0;
                     let hasMultiplePages = ShipsPages.length > 1;
-
-                    let canDelete = this.data.ships[this.data._manage.selectedIndex]?.author === this.element.member.id || this.data.userPermissionLevel >= client.PERMISSION.GUILD_MOD;
+                    
+                    let isAuthor = ship?.author === this.element.member.id;
+                    let canDelete = isAuthor || this.data.userPermissionLevel >= client.PERMISSION.GUILD_MOD;
 
                     return [
                         [
@@ -561,6 +601,8 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 emoji: '✏',
                                 label: "Modifier",
                                 action: async function() {
+                                    this.methods.manageDeleteCancel();
+
                                     this.data._edit.index = this.data._manage.selectedIndex;
                                     this.data._manage.selectedIndex = null;
                                     this.goto('ship-edit');
@@ -570,14 +612,29 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             },
                             {
                                 emoji: '🗑️',
-                                label: "Supprimer",
-                                action: async function() {
-                                    let {guild, uid} = this.data.ships[this.data._manage.selectedIndex];
+                                label: this.data._manage._deleteConfirm ? "Confirmer la suppression" : "Supprimer",
+                                style: this.data._manage._deleteConfirm ? ButtonStyle.Danger : ButtonStyle.Secondary,
+                                action: async function(interaction) {
+                                    if (this.data._manage._deleteConfirm) {
+                                        let {guild, uid} = this.data.ships[this.data._manage.selectedIndex];
 
-                                    await Manager.ships.delete(guild, uid);
+                                        await Manager.ships.delete(guild, uid);
 
-                                    this.data.ships = this.data.ships.filter((e,i) => i !== this.data._manage.selectedIndex);
-                                    this.data._manage.selectedIndex = null;
+                                        this.data.ships = this.data.ships.filter((e,i) => i !== this.data._manage.selectedIndex);
+                                        this.data._manage.selectedIndex = null;
+                                    } else {
+                                        this.data._manage._deleteConfirm = await interaction.channel.send({
+                                            content: `_${interaction.user} :warning: : Cette action est définitive. Voulez-vous continuer ?\nAppuyez de nouveau pour confirmer ou faites une autre action pour annuler._`
+                                        });
+
+                                        this.data._manage._deleteConfirmInteraction = true;
+
+                                        this.data._manage._deleteConfirmTimeout = setTimeout(() => {
+                                            this.methods.manageDeleteCancel();
+                                            this.update(interaction);
+                                        }, 10_000);
+                                    }
+                                    
                                     return true;
                                 },
                                 disabled: !canDelete || typeof this.data._manage.selectedIndex !== 'number'
@@ -643,7 +700,11 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             {
                                 emoji: "🏠",
                                 label: "Home",
-                                action: "goto:home"
+                                action: function() {
+                                    this.methods.manageDeleteCancel();
+                                    this.goto('home');
+                                    return true;
+                                }
                             },
                         ],
                     ]
@@ -670,7 +731,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                         fields: [
                             {
                                 name: "Créateurs",
-                                value: [ ship.author, ...ship.editors ].map(id => `<@${id}>`).join('\n')
+                                value: [ ship.author, ...ship.editors ].map(id => `<@${id}>`).join(' ').slice(0,1024)
                             },
 
                             {
@@ -693,13 +754,14 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                             url: attachment ? `attachment://${attachment.name}` : NotAvailableDefaultImage
                         },
                         footer: {
-                            text: `Ship créer par ${ResolveUser(ship.author)}`
+                            text: `Ship créer par ${ResolveUser(ship.author) ?? 'Unknown'}`
                         },
                         color: 0x5865F2,
                     }]
                 },
                 components: function() {
                     let ship = this.data.ships[this.data._edit.index];
+                    let isAuthor = ship.author === this.element.member.id;
 
                     return [
                         [
@@ -722,7 +784,8 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 action: function() {
                                     this.goto('ship-edit-editors');
                                     return true;
-                                }
+                                },
+                                disabled: !isAuthor
                             },
                         ],
                         [
@@ -730,15 +793,21 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 emoji: "🖼",
                                 label: "Image",
                                 action: async function(interaction) {
+                                    if (this.data._edit._LockImageButton) return false;
+                                    this.data._edit._LockImageButton = true;
+
                                     interaction.deferUpdate();
     
                                     const filter = (collect) => {
                                         if (interaction.user.id !== collect.author.id) return false;
+                                        if (collect.content.toLowerCase().simplify().indexOf(cancelationWord.toLowerCase().simplify()) > -1) return true;
                                         return ExtractUrlsFromContent(collect).length > 0 || ExtractUrlsFromAttachments(collect).length > 0;
                                     }
     
+                                    let cancelationWord = this.methods.getRandomCancelationPassword();
+
                                     let instruction = await interaction.channel.send({
-                                        content: `\u200b\n_${interaction.user} Envoyez un message contenant un lien ou une image attachée_`
+                                        content: `_${interaction.user} Envoyez un message contenant un lien ou une image attachée\nOu tapez \`${cancelationWord}\` pour annuler._`
                                     });
                                     let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).catch(noop);
 
@@ -754,6 +823,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     }
 
                                     instruction.delete().catch(noop);
+                                    this.data._edit._LockImageButton = false;
 
                                     return true
                                 }
@@ -973,8 +1043,10 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                 name: 'ship-edit-editors',
                 beforeUpdate: function() {
                     let { selectpage } = this.data._edit;
-                    let ship = this.data.ships[this.data._edit.index];
                     
+                    if (!this.data._edit.__giveOwnershipInteraction) this.methods.editEditorsCancelLegOwnership();
+                    this.data._edit.__giveOwnershipInteraction = false;
+
                     this.data._edit.selectpage = selectpage ?? 0;
                 },
                 embeds: function() {
@@ -989,6 +1061,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                     let EditorsPages = ship.editors.unique().chunkOf(25);
                     
                     let hasMultiplePages = EditorsPages.length > 1
+                    let isAuthor = ship.author === this.element.member.id;
 
                     return [
                         [
@@ -997,32 +1070,42 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 label: "Ajouter",
                                 action: async function(interaction) {
                                     if (!this.members.includes(interaction.user.id)) return false;
+
+                                    if (this.data._edit._LockAddEditorButton) return false;
+                                    this.data._edit._LockAddEditorButton = true;
+
                                     interaction.deferUpdate();
 
                                     let allowedMembers = this.pages[this.page]?.allowedMembers ?? [];
 
                                     const filter = (collect) => {
 			                            if (![...this.members, ...allowedMembers].includes(interaction.user.id)) return false;
+                                        if (collect.content.toLowerCase().simplify().indexOf(cancelationWord.toLowerCase().simplify()) > -1) return true;
                                         return this.members.includes(collect.author.id) && collect.mentions.users.keys().array().length > 0;
                                     }
 
+                                    let cancelationWord = this.methods.getRandomCancelationPassword();
+
                                     let instruction = await interaction.channel.send({
-                                        content: `_${interaction.user} Mentionnez touts les utilisateurs supplémentaire qui auront accès à la modification de ce ship._`
+                                        content: `_${interaction.user} Mentionnez touts les utilisateurs supplémentaire qui auront accès à la modification de ce ship.\nOu tapez \`${cancelationWord}\` pour annuler._`
                                     });
                                     let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).then(c => c).catch(() => null);
                                     
-                                    instruction.delete();
+                                    instruction.delete().catch(noop);
 
                                     await collected.values().array().flatMap(async (collect) => {
                                         let ids = collect.mentions.users.keys().array();
                                         
-                                        ship.editors = [...ship.editors, ...ids].unique();
+                                        ship.editors = [...ship.editors, ...ids].unique().filter(id => id !== ship.author);
 
-                                        collect.delete();
+                                        collect.delete().catch(noop);
                                     }).promise();
 
+                                    this.data._edit._LockAddEditorButton = false;
+
                                     return true;
-                                }
+                                },
+                                disabled: !isAuthor
                             },
                             {
                                 emoji: '🗑️',
@@ -1032,7 +1115,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     this.data._edit.selectedEditor = null;
                                     return true;
                                 },
-                                disabled: typeof this.data._edit.selectedEditor !== 'string'
+                                disabled: !isAuthor || typeof this.data._edit.selectedEditor !== 'string'
                             },
                         ],
                         [
@@ -1041,7 +1124,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                 placeholder: "Selection d'un editeur",
                                 options: ship.editors.length > 0
                                     ? EditorsPages[this.data._edit.selectpage].map((editor, index) => ({
-                                        label: `${(index + 1) + (this.data._edit.selectpage * 25)}. ${ResolveUser(editor)}`,
+                                        label: `${(index + 1) + (this.data._edit.selectpage * 25)}. ${ResolveUser(editor) ?? `<@${editor}>`}`,
                                         value: editor,
                                         default: editor === this.data._edit.selectedEditor
                                     }))
@@ -1051,7 +1134,40 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     this.data._edit.selectedEditor = interaction.values[0];
                                     return true;
                                 },
+                                disabled: !isAuthor
                             }
+                        ],
+                        [
+                            {
+                                emoji: '🤝',
+                                label: this.data._edit.__giveOwnership ? "Confirmer le legs" : "Léguer la propriété",
+                                style: this.data._edit.__giveOwnership ? ButtonStyle.Primary : ButtonStyle.Secondary,
+                                action: async function(interaction) {
+                                    if (this.data._edit.__giveOwnership) {
+                                        ship.editors = [...ship.editors, ship.author].unique().filter(id => id !== this.data._edit.selectedEditor);
+                                        ship.author = this.data._edit.selectedEditor;
+                                        this.data._edit.selectedEditor = null;
+
+                                        await ship.save();
+                                        
+                                        this.methods.editEditorsCancelLegOwnership();
+                                    } else {
+                                        this.data._edit.__giveOwnershipMessage = await interaction.channel.send({
+                                            content: `_${interaction.user} :warning: : vous ne pourrez plus récupérer la propriété. Voulez-vous continuer ?\nAppuyez de nouveau pour confirmer_`
+                                        });
+
+                                        this.data._edit.__giveOwnershipInteraction = true;
+
+                                        this.data._edit.__giveOwnership = setTimeout(() => {
+                                            this.methods.editEditorsCancelLegOwnership();
+                                            this.update(interaction);
+                                        }, 10_000);
+                                    }
+
+                                    return true;
+                                },
+                                disabled: !isAuthor || typeof this.data._edit.selectedEditor !== 'string'
+                            },
                         ],
                         [
                             {
@@ -1061,7 +1177,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) - 1, 0, EditorsPages.length - 1);
                                     return true;
                                 },
-                                disabled: !hasMultiplePages || this.data._edit.selectpage < 1
+                                disabled: !isAuthor || !hasMultiplePages || this.data._edit.selectpage < 1
                             },
                             {
                                 label: `${this.data._edit.selectpage + 1}/${EditorsPages.length}`,
@@ -1078,7 +1194,7 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     return true;
                                 },
                                 style: ButtonStyle.Secondary,
-                                disabled: !hasMultiplePages
+                                disabled: !isAuthor || !hasMultiplePages
                             },
                             {
                                 emoji: Emotes.GetEmojiObject(Emotes.chevron.black.right.simple),
@@ -1087,13 +1203,17 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                                     this.data._edit.selectpage = Math.clamp((this.data._edit.selectpage || 0) + 1, 0, EditorsPages.length - 1);
                                     return true;
                                 },
-                                disabled: !hasMultiplePages || this.data._edit.selectpage >= EditorsPages.lastIndex
+                                disabled: !isAuthor || !hasMultiplePages || this.data._edit.selectpage >= EditorsPages.lastIndex
                             },
                         ],
                         [
                             {
                                 label: "Retour",
-                                action: "goto:ship-edit"
+                                action: function() {
+                                    this.methods.editEditorsCancelLegOwnership();
+                                    this.goto('ship-edit');
+                                    return true;
+                                }
                             },
                         ],
                     ];
@@ -1171,14 +1291,14 @@ async function ShipMenu({ discordElement, GuildData, UserData, userPermissionLev
                         [
                             {
                                 type: ComponentType.StringSelect,
-                                placeholder: "Selection d'un editeur",
+                                placeholder: "Selection d'un univers",
                                 options: ship.universes.length > 0
                                     ? UniversesPages[this.data._edit.selectpage].map((universe, index) => ({
                                         label: `${(index + 1) + (this.data._edit.selectpage * 25)}. ${universe}`,
                                         value: ''+ index + (this.data._edit.selectpage * 25),
                                         default: universe === this.data._edit.selectedUniverse
                                     }))
-                                    : [{ label: "Aucun editeur selectionnable", value: "missingno", default: true }]
+                                    : [{ label: "Aucun univers selectionnable", value: "missingno", default: true }]
                                 ,
                                 action: function(interaction) {
                                     this.data._edit.selectedUniverse = Number(interaction.values[0]);

@@ -49,11 +49,7 @@ module.exports = {
             case "i":
                 try {
                     // CALL API
-                    response = await fetch(`${IMAGE_API}/cat`, {
-                        headers: {
-                          'Accept': 'application/json'
-                        }
-                      });
+                    response = await fetch(`${IMAGE_API}/cat`, {headers: {'Accept': 'application/json'}});                    
                 } catch {}
 
                 if (response?.status !== 200) { // Handle API's failures
@@ -71,8 +67,7 @@ module.exports = {
 
                 embed = new EmbedBuilder()
                     .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
-                    .setDescription(`_Due à un problème avec l'api,\nle système de selection ne fonctionne pas\net l'image est 100% aléatoire et peut être buguée_`)
-                    .setImage(`${IMAGE_API}/cat?t=${Date.timestamp(0)}${discordElement.id}${discordElement.member.id}`)
+                    .setImage(`${IMAGE_API}/cat/${data.id}`)
                     .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
                     .setTimestamp()
                 ;
@@ -84,37 +79,31 @@ module.exports = {
             // Embeded Gif are broken?
             case "gif":
             case "g":
-                discordElement.reply({
-                    content: "Due to an error with the API, gif doesn't work.",
-                }).then(m => {
-                    if (message) Wait(5_000).then(() => m.delete());
-                });
+                try {
+                    // CALL API
+                    response = await fetch(`${IMAGE_API}/cat/gif`, {headers: {'Accept': 'application/json'}});
+                } catch {}
 
-                // try {
-                //     // CALL API
-                //     response = await fetch(`${IMAGE_API}/cat/gif?json=true`);
-                // } catch {}
+                if (response?.status !== 200) { // Handle API's failures
+                    discordElement.reply({
+                        content: Locale.get("command.cat.error.api.cataas.failure"),
+                    }).then(m => {
+                        if (message) Wait(5_000).then(() => m.delete());
+                    });
+                    return false;
+                }
 
-                // if (response?.status !== 200) { // Handle API's failures
-                //     discordElement.reply({
-                //         content: Locale.get("command.cat.error.api.cataas.failure"),
-                //     }).then(m => {
-                //         if (message) Wait(5_000).then(() => m.delete());
-                //     });
-                //     return false;
-                // }
+                data = await response.json();
 
-                // data = await response.json();
+                embed = new EmbedBuilder()
+                    .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
+                    .setImage(`${IMAGE_API}/cat/${data.id}`)
+                    .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
+                    .setTimestamp()
+                ;
 
-                // embed = new EmbedBuilder()
-                //     .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
-                //     .setImage(`${IMAGE_API}/cat/${data._id}`)
-                //     .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
-                //     .setTimestamp()
-                // ;
-
-                // if (interaction) interaction.reply({ embeds: [ embed ] });
-                // if (message) message.channel.send({ embeds: [ embed ] });
+                if (interaction) interaction.reply({ embeds: [ embed ] });
+                if (message) message.channel.send({ embeds: [ embed ] });
             break;
             
             case "fact":

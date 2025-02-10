@@ -37,8 +37,8 @@ console.info = function() {
 	oInfo.apply(this, [`\x1B[38;5;0m\x1B[48;5;27m[ INFO ]\x1B[0m`, ...arguments]);
 }
 console.error = function() {
-	oWarn.apply(this, ['\x1B[38;5;0m\x1B[48;5;196m[ ERROR ]\x1B[0m', ...arguments]);
-	oError.apply(this, arguments);
+	writeit.apply(this, ['[ERROR]', ...arguments]);
+	oError.apply(this, ['\x1B[38;5;0m\x1B[48;5;196m[ ERROR ]\x1B[0m', ...arguments]);
 }
 
 console.log = function() {

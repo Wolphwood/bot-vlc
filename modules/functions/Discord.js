@@ -197,7 +197,10 @@ exports.DiscordMenu = class DiscordMenu {
 			: {}
 		;
 	}
-	
+
+	get selectedPage() {
+		return this.pages[this.page] ?? this.pages[0];
+	}
 
 	async #processComponents(array) {
 		this.actions = {};
@@ -307,14 +310,14 @@ exports.DiscordMenu = class DiscordMenu {
 		}
 	}
 
-	async update() {
+	async update(interaction) {
 		if (this.collector.ended) return;
 
-		let skip = await this.beforeUpdate.apply(this, []);
+		let skip = await this.beforeUpdate.apply(this, [interaction]);
 		if (skip) return;
 		
 		if (typeof this.pages[this.page]?.beforeUpdate === 'function') {
-			let skip = await this.pages[this.page]?.beforeUpdate.apply(this, []);
+			let skip = await this.pages[this.page]?.beforeUpdate.apply(this, [interaction]);
 			if (skip) return;
 		}
 
@@ -327,10 +330,10 @@ exports.DiscordMenu = class DiscordMenu {
 		if ( this.element instanceof Message ) await this.message.edit({content, components, embeds, files});
 		if ( this.element instanceof CommandInteraction ) await this.element.editReply({content, components, embeds, files});
 
-		this.afterUpdate.apply(this, []);
+		this.afterUpdate.apply(this, [interaction]);
 		
 		if (typeof this.pages[this.page]?.afterUpdate === 'function') {
-			await this.pages[this.page]?.afterUpdate.apply(this, []);
+			await this.pages[this.page]?.afterUpdate.apply(this, [interaction]);
 		}
 	}
 
@@ -387,7 +390,7 @@ exports.DiscordMenu = class DiscordMenu {
 							if (this.page > this.pages.length - 1) this.page = this.pages - 1;
 							if (this.page < 0) this.page = 0;
 			
-							if (stillUpdate) await this.update();
+							if (stillUpdate) await this.update(interaction);
 							
 							if (!interaction.deferred && !interaction.replied) await interaction.deferUpdate().catch(noop);
 						});
