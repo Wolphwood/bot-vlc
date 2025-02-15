@@ -678,23 +678,6 @@ async function GameSmashOrPass({ discordElement, GuildData, UserData }) {
                     ];
                 },
             },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             {
                 name: "game-setup",
                 beforeUpdate: function() {
@@ -723,7 +706,7 @@ async function GameSmashOrPass({ discordElement, GuildData, UserData }) {
                         ['random', 'famous', 'unfamous'].map(value => {
                             return {
                                 label: Locale.get(`command.sop.play.setup.button.mode.${value}`),
-                                style: this.data.gamemode === value ? ButtonStyle.Success : ButtonStyle.Secondary,
+                                style: this.data.gamemode === value ? ButtonStyle.Primary : ButtonStyle.Secondary,
                                 action: async function(interaction) {
                                     this.data.gamemode = value;
                                     return true;

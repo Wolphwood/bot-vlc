@@ -81,6 +81,7 @@ if (consoleModule) {
 // BDD Manager
 global.Manager = new (require('./MongoDb/Manager'));
 
+global.DiscordMenu = require('./DiscordMenu.js');
 
 const { Locale } = require('./Locales.js')
 global.Locale = Locale;
@@ -89,10 +90,6 @@ global.Locale = Locale;
 global.Emotes = require('../assets/Emotes');
 
 global.UnicodeEmotes = require('../assets/UnicodeEmotes');
-
-// Cooldown
-let { oldCooldown } = require('./oldCooldown.js');
-global.oldCooldown = oldCooldown;
 
 // ShortUniqueId
 global.ShortUniqueId = require('./ShortUniqueId');
