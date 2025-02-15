@@ -12,6 +12,7 @@ if (typeof global.loadedModules !== 'undefined') {
             "isArray",
             "isString",
             "isNumber",
+            "isFunction",
             "isEmpty",
             "isNull",
             "isDefined",
@@ -97,6 +98,9 @@ exports.isString = function isString(o) {
 }
 exports.isNumber = function isNumber(o) {
     return typeof o == 'number';
+}
+exports.isFunction = function isFunction(o) {
+    return typeof o == 'function';
 }
 
 exports.isEmpty = function isEmpty(o) {

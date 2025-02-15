@@ -232,6 +232,13 @@ module.exports = async ({ client, parameters: [message]}) => {
             await CommandObject.run({ client, message, raw: rawContent, prefix, command, args, userPermissionLevel, GuildData, UserData, LangToUse, cooldown });
         } catch (error) {
             console.error(`[ ERROR : ${Date.timestamp()} ]`, error);
+
+            if (!fs.existsSync('./logs/errors/message')) {
+                fs.mkdirSync('./logs/errors/message', { recursive: true });
+            }
+
+            fs.appendFileSync(`./logs/errors/message/${Date.timestamp(1)}.txt`, Object.getOwnPropertyNames(error).map(k => error[k]).join(''));
+
             await message.reply({ content: Locale.get('generic.error.command.internal_error', [Date.timestamp()]), ephemeral: true }).catch(noop);
         }
     } else {
