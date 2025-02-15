@@ -247,8 +247,6 @@ module.exports = class DiscordMenu {
 				));
 			}
 
-			console.debug(this.message);
-
 			if (this.message) {
 				this.sent = true;
 			}
