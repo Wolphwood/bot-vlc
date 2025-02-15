@@ -6,6 +6,7 @@ const {
 	noop,
 	isBoolean, isObject, isArray, isString, isNumber, isEmpty, isNull, isDefined, isFunction
 } = require('./functions/Utils.js');
+
 module.exports = class DiscordMenu {
 	#methods; #pagemapIndex;
 	constructor(options) {
@@ -224,10 +225,10 @@ module.exports = class DiscordMenu {
 		try {
 			this.uid = this.element.id +'_'+ Date.timestamp();
 			
-			let _beforeUpdate = await this.runHook(this, 'beforeUpdate', [interaction]);
+			let _beforeUpdate = await this.runHook(this, 'beforeUpdate', []);
 			if (_beforeUpdate) return;
 
-			let _pageBeforeUpdate = await this.runHook(this.page, 'beforeUpdate', [interaction])
+			let _pageBeforeUpdate = await this.runHook(this.page, 'beforeUpdate', []);
 			if (_pageBeforeUpdate) return;
 
 			let { content, components, embeds, files } = await this.prepareMessage();
@@ -246,16 +247,18 @@ module.exports = class DiscordMenu {
 				));
 			}
 
+			console.debug(this.message);
+
 			if (this.message) {
 				this.sent = true;
 			}
 
 			this.collector = null;
 
-			let _afterUpdate = await this.runHook(this, 'afterUpdate', [interaction]);
+			let _afterUpdate = await this.runHook(this, 'afterUpdate', []);
 			if (_afterUpdate) return;
 
-			let _pageafterUpdate = await this.runHook(this.page, 'afterUpdate', [interaction])
+			let _pageafterUpdate = await this.runHook(this.page, 'afterUpdate', []);
 			if (_pageafterUpdate) return; // useless but, yes.
 		} catch (error) {
 			this.handleError(error);
@@ -270,7 +273,7 @@ module.exports = class DiscordMenu {
 			let _beforeUpdate = await this.runHook(this, 'beforeUpdate', [interaction]);
 			if (_beforeUpdate) return;
 
-			let _pageBeforeUpdate = await this.runHook(this.page, 'beforeUpdate', [interaction])
+			let _pageBeforeUpdate = await this.runHook(this.page, 'beforeUpdate', [interaction]);
 			if (_pageBeforeUpdate) return;
 
 			let { content, components, embeds, files } = await this.prepareMessage();
@@ -281,7 +284,7 @@ module.exports = class DiscordMenu {
 			let _afterUpdate = await this.runHook(this, 'afterUpdate', [interaction]);
 			if (_afterUpdate) return;
 
-			let _pageafterUpdate = await this.runHook(this.page, 'afterUpdate', [interaction])
+			let _pageafterUpdate = await this.runHook(this.page, 'afterUpdate', [interaction]);
 			if (_pageafterUpdate) return; // useless but, yes.
 		} catch (error) {
 			this.handleError(error);
@@ -296,7 +299,7 @@ module.exports = class DiscordMenu {
 			return new Promise(async (resolve,reject) => {
 				do {
 					restart = false;
-	
+
 					this.collector = this.message.createMessageComponentCollector(Object.assign( {...this.collectorOptions}, {filter: this.filter} ));
 	
 					let reason = await new Promise((rs,re) => {
