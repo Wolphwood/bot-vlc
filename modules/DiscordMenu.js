@@ -186,15 +186,15 @@ module.exports = class DiscordMenu {
 	}
 
 	async _prepareMessageEmbeds() {
-		return typeof this.page?.content === 'function'
-			? await this.page?.content.apply(this, [])
-			: this.page?.content ?? null;
+		return typeof this.page?.embeds === 'function'
+			? await this.page?.embeds.apply(this, [])
+			: this.page?.embeds ?? null;
 	}
 	
 	async _prepareMessageFiles() {
-		return typeof this.page?.content === 'function'
-			? await this.page?.content.apply(this, [])
-			: this.page?.content ?? null;
+		return typeof this.page?.files === 'function'
+			? await this.page?.files.apply(this, [])
+			: this.page?.files ?? null;
 	}
 
 	async _prepareMessageComponents() {
