@@ -18,6 +18,23 @@ module.exports = {
 	downvote: "<:downvote:1336729524913831946>",
 	upvote: "<:upvote:1336729498015633580>",
 	
+	tomato: {
+		tomato: "🍅",
+		tomato1: "<:tomato1:1404819662130385027>",
+		tomato2: "<:tomato2:1404819659554951300>",
+		tomato3: "<:tomato3:1404819658569289899>",
+		tomato4: "<:tomato4:1404819655767490721>",
+		tomato5: "<:tomato5:1404819653901156390>",
+		tomato6: "<:tomato6:1404819652118581268>",
+		tomato7: "<:tomato7:1404819650105180180>",
+		tomato8: "<:tomato8:1404819648603492434>",
+		tomato9: "<:tomato9:1404819646875435049>",
+		tomato10: "<:tomato10:1404819645231530107>",
+		tomato11: "<:tomato11:1404819643218268240>",
+		tomato12: "<:tomato12:1404819640840097938>",
+		tomato13: "<:tomato13:1404819914342142027>",
+	},
+
 	progress: {
 		blue: {
 			start: {

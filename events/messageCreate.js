@@ -7,6 +7,7 @@ global.loadedModules.events.push({
 
 const { ChannelType } = require('discord.js');
 const AutoReponse = require('../modules/AutoReponse');
+const Tomato = require('../modules/Tomato');
 const { Cooldown } = require('../modules/Cooldown');
 
 const { noop } = require('../modules/functions/Utils');
@@ -19,6 +20,9 @@ module.exports = async ({ client, parameters: [message]}) => {
     let regexMentionPrefix = RegExp('^<@[&!]*'+client.user.id+'>');
     
     // if ( !message.content.startsWith(prefix) && !regexMentionPrefix.test(message.content) ) return AutoReponse({ message });
+
+    // Passive Reaction
+    Tomato({ message });
     
     if (!message.content.startsWith(prefix) && !regexMentionPrefix.test(message.content)) return;
     if (message.author.bot) return;

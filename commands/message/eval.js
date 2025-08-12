@@ -1,5 +1,6 @@
 const { EmbedBuilder, Attachment } = require('discord.js');
 const util = require("util");
+const path = require("path");
 const client = require('../../app');
 const fs = require('fs');
 
@@ -114,7 +115,7 @@ const CommandObject = {
         }
 
         await message.channel.send({ embeds: [ embed ] });
-        if (inspectResult?.length > 1000 || logs.join('\n').length > 1000) await message.channel.send({ files: [ `${filePath}\\${filename}` ] });
+        if (inspectResult?.length > 1000 || logs.join('\n').length > 1000) await message.channel.send({ files: [ path.join(filePath, filename) ] });
     }
 };
 
