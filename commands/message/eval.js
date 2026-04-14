@@ -1,127 +1,187 @@
-const { EmbedBuilder, Attachment } = require('discord.js');
-const util = require("util");
-const path = require("path");
-const client = require('../../app');
-const fs = require('fs');
+import { EmbedBuilder, AttachmentBuilder, ComponentType, ButtonStyle, MessageFlags } from 'discord.js';
+import util from 'node:util';
+import vm from 'node:vm';
+import { createRequire } from 'node:module';
+import { PERMISSION } from '#constants';
+import { dbManager } from '#modules/database/Manager';
 
-const CommandObject = {
-    name: "eval",
-    category: 'root',
-    aliases: ['e'],
-    description: null,
-    syntax: null,
-    userPermission: client.PERMISSION.ROOT,
+const require = createRequire(import.meta.url);
+
+export default {
+  name: "eval",
+  category: 'root',
+  aliases: ['e'],
+  userPermission: PERMISSION.ROOT, 
+
+  run: async ({ client, message, args, raw, manager }) => {
+    message.delete();
+
+    const code = raw.replace(/^```(js|javascript)?\n|```$/g, '').trim();
     
-    run: async ({client, message, args, raw, GuildData, UserData, LangToUse }) => {
-        client = {...client};
-        delete client.token;
-        client.config = JSON.parse(JSON.stringify(client.config));
-        delete client.config.token;
-        delete client.config.bdd;
+    const logs = [];
+    const pushLog = (prefix, args) => {
+      const content = args.map(a => (typeof a === 'string' ? a : (a.toString ? a.toString() : a))).join(' ');
+      logs.push(prefix ? `[${prefix}] ${content}` : content);
+    };
 
-        let member = message.member;
+    // Configuration du Logger complet
+    const logger = {
+      log: (...a) => pushLog('', a),
+      info: (...a) => pushLog('[INFO]', a),
+      warn: (...a) => pushLog('[WARN]', a),
+      error: (...a) => pushLog('[ERROR]', a),
+      debug: (...a) => pushLog('[DEBUG]', a),
+      fatal: (...a) => pushLog('[FATAL]', a),
+      inspect: (...a) => {
+        a.forEach(arg => logs.push(util.inspect(arg, { showHidden: false, depth: null, maxArrayLength: null, maxStringLength: null, colors: false })));
+      },
+      blank: (n = 1) => logs.push('\n'.repeat(Math.max(0, n - 1)))
+    };
 
-        let embed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setFooter({text: Locale.get("generic.embed.footer", [client.user.username, client.config.version, member.nickname || member.user.username]), iconURL: member.avatarURL({format:'png', size: 32, dynamic: false})})
-            .setTimestamp()
-        ;
+    const context = vm.createContext({
+      client,
+      message,
+      manager,
+      require,
+      fetch,
+      util,
+      console: logger,
+      log: logger,    
+      process,
+      global
+    });
 
-        // Fake logger (to avoid to print things in real console + catch logs to display in reply them)
-        let logs = [];
+    const script = new vm.Script(`(async () => {\n${code}\n})()`);
 
-        Logger = {};
-        Logger.log = function() {logs.push([...arguments].join(' '))};
-        Logger.llog = function() {Logger.log.apply(this, [...arguments])};
-        Logger.warn = function() {Logger.log.apply(this, ['[ WARN ]', ...arguments])};
-        Logger.info = function() {Logger.log.apply(this, ['[ INFO ]', ...arguments])};
-        Logger.error = function() {Logger.log.apply(this, ['[ ERROR ]', ...arguments])};
-        Logger.blank = function(n = 1) {
-            Logger.log.apply(this, ['\n'.repeat(Math.max(0, n - 1))]);
+    const codeblock = (str) => `\`\`\`js\n${str.limit(1000)}\n\`\`\``
+
+    try {
+      const startTime = performance.now();
+      const result = await script.runInContext(context, { timeout: 10000 });
+      const duration = (performance.now() - startTime).toFixed(2);
+
+      const inspectResult = util.inspect(result, { depth: null, maxArrayLength: null, maxStringLength: null, colors: false });
+
+      const embed = new EmbedBuilder()
+        .setColor('#00FF00')
+        .setTitle('🛠️ Root Eval')
+        .setDescription(`**Duration:** \`${duration}ms\``)
+        .addFields([{ name: "Code", value: codeblock(code) }])
+        .setTimestamp();
+
+      const buttons = [];
+      
+      if (code.length > 1000) {
+        const logcontext = dbManager.log.getContextFromElement("EVAL", message, code);
+        const uid = await dbManager.log.save(logcontext);
+        
+        buttons.push({
+          type: ComponentType.Button,
+          style: ButtonStyle.Secondary,
+          label: "Get full code",
+          custom_id: `GETLOG:ROOT:${uid}`
+        });
+      }
+
+      // Traitement de tous les logs capturés
+      if (logs.length > 0) {
+        const fullLogs = logs.join('\n');
+        
+        console.inspect(logs);
+
+        if (fullLogs.length > 1000) {
+          const logcontext = dbManager.log.getContextFromElement("EVAL", message, fullLogs);
+          const uid = await dbManager.log.save(logcontext);
+
+          buttons.push({
+            type: ComponentType.Button,
+            style: ButtonStyle.Secondary,
+            label: "Get full logs",
+            custom_id: `GETLOG:ROOT:${uid}`
+          });
         }
-        Logger.debug = function() {Logger.log.apply(this, ['[ DEBUG ]', ...arguments])};
-        Logger.inspect = function() {
-            let keys = Object.keys(arguments);
-
-            if (arguments.length > 0) {
-                Logger.log.apply(this, [util.inspect(arguments[keys.shift()], {showHidden: false, depth: null, colors: false})]);        
-                
-                keys.forEach(key => {
-                    let argument = arguments[key];
-                    Logger.llog.apply(this, [util.inspect(argument, {showHidden: false, depth: null, colors: false})]);
-                });
-            } else {
-                Logger.log([]);
-            }
+        
+        embed.addFields([{ name: 'Logs', value: codeblock(fullLogs) }]);
+      }
+      
+      // Traitement de l'output (le return)
+      if (inspectResult !== 'undefined') {
+        if (inspectResult.length > 1000) {
+          const logcontext = dbManager.log.getContextFromElement("EVAL", message, inspectResult);
+          const uid = await dbManager.log.save(logcontext);
+          
+          buttons.push({
+            type: ComponentType.Button,
+            style: ButtonStyle.Secondary,
+            label: "Get full result",
+            custom_id: `GETLOG:ROOT:${uid}`
+          });
         }
+        embed.addFields([{ name: 'Output', value: codeblock(inspectResult) }]);
+      }
 
-        let filePath = `./hastes`;
-        let filename = `${message.author.id}_${message.id}.txt`;
-        let inspectResult;
+      await message.channel.send({
+        embeds: [embed],
+        components: buttons.chunkOf(5).slice(0,5).map(components => ({ type: ComponentType.ActionRow, components })),
+      });
+    } catch (err) {
+      const errorStack = util.inspect(err, { depth: null, colors: false });
+      
+      const embed = new EmbedBuilder()
+        .setColor('#FF0000')
+        .setTitle('🛠️ Root Eval')
+        .setDescription(`**ERROR DETECTED**`)
+        .setTimestamp()
+      ;
+      
+      const buttons = [];
 
-        try {
-            // Get output
-            if (args.get(0)?.startsWith('```') && args.get(-1)?.endsWith('```')) { args.pop(); args.shift(); }
-            if (raw?.startsWith('```') && raw?.endsWith('```')) raw = raw.slice(raw.indexOf(args[0]),-3).trim();
+      if (code.length > 1000) {
+        const logcontext = dbManager.log.getContextFromElement("EVAL", message, code);
+        const uid = await dbManager.log.save(logcontext);
+        
+        buttons.push({
+          type: ComponentType.Button,
+          style: ButtonStyle.Secondary,
+          label: "Get full code",
+          custom_id: `GETLOG:ROOT:${uid}`
+        });
+      }
+      embed.addFields([{ name: "Code", value: codeblock(code) }]);
 
-            inspectResult = util.inspect(await eval("(async () => {" + args.join(' ').replace(/console/gm, 'Logger') + "})()"));
-
-            // Add short result
-            embed.addFields([{
-                name: 'Input :',
-                value: ['```js', raw || '\u2000', '```'].join('\n')
-            }]);
-            
-            if (logs.length > 0) {
-                embed.addFields([{
-                    name: 'Logs :', 
-                    value: '```js\n'+ ( logs.join('\n').length > 1000 ? logs.join('\n').slice(0,999) + '…' : logs.join('\n') ) +'```'
-                }]);
-            }
-
-            if (inspectResult !== 'undefined') {
-                embed.addFields([{
-                    name: 'Output :', 
-                    value: '```js\n'+ ( inspectResult.length > 1000 ? inspectResult.slice(0,999) + '…' : inspectResult ) +'```'
-                }]);
-            }
-
-            // Create long result
-            if (inspectResult?.length > 1000 || logs.join('\n').length > 1000) {
-                let content = [
-                    "# Input",
-                    raw || 'N/A',
-                    '',
-                    "# Logs",
-                    logs.join('\n') || 'N/A',
-                    '',
-                    "# Output",
-                    inspectResult,
-                ].join('\n');
-
-                if (fs.existsSync(filePath)) {
-                    fs.mkdirSync(filePath, { recursive: true });
-                }
-
-                fs.writeFileSync(`${filePath}\\${filename}`, content, 'utf-8');
-            }
-        } catch(err) {
-            embed
-                .setColor('#FF0000')
-                .addFields([
-                    {name: 'Error :', value: '```' + Object.getOwnPropertyNames(err).map(k => err[k]).join('') + '```'},
-                ])
-            ;
+      if (logs.length > 0) {
+        const fullLogs = logs.join('\n');
+        if (fullLogs.length > 1000) {
+          const logcontext = dbManager.log.getContextFromElement("EVAL", message, logs);
+          const uid = await dbManager.log.save(logcontext);
+          
+          buttons.push({
+            type: ComponentType.Button,
+            style: ButtonStyle.Secondary,
+            label: "Get full logs",
+            custom_id: `GETLOG:ROOT:${uid}`
+          });
         }
+        embed.addFields([{ name: 'Logs', value: codeblock(fullLogs) }]);
+      }
+      
+      if (errorStack.length > 1000) {
+        const logcontext = dbManager.log.getContextFromElement("EVAL", message, errorStack);
+        const uid = await dbManager.log.save(logcontext);
+        
+        buttons.push({
+          type: ComponentType.Button,
+          style: ButtonStyle.Secondary,
+          label: "Get full error",
+          custom_id: `GETLOG:ROOT:${uid}`
+        });
+      }
+      embed.addFields([{ name: "Error", value: codeblock(errorStack ?? 'Unknown') }]);
 
-        await message.channel.send({ embeds: [ embed ] });
-        if (inspectResult?.length > 1000 || logs.join('\n').length > 1000) await message.channel.send({ files: [ path.join(filePath, filename) ] });
+      await message.channel.send({
+        embeds: [ embed ],
+        components: buttons.chunkOf(5).slice(0,5).map(components => ({ type: ComponentType.ActionRow, components })),
+      });
     }
+  }
 };
-
-
-
-CommandObject.description = Locale.get(`commandinfo.${CommandObject.name}.description`) || 'No description';
-CommandObject.syntax = Locale.get(`commandinfo.${CommandObject.name}.syntax`) || '¯\\_(ツ)_/¯';
-
-module.exports = CommandObject;

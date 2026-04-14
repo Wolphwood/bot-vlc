@@ -1,8 +1,11 @@
 node_modules
 logs/**
-hastes
+assets/sop/**
+
+package-lock.json
 
 config.js
 debug.txt
 
+.env
 *.bat

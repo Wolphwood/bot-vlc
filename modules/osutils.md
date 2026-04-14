@@ -13,7 +13,7 @@ and others are calculations made by the module.
 
 Then in your code 
 ```js
-var os 	= require('./osutils');
+import os from "./osutils.js";
 
 let cpu_usage = await os.cpuUsage();
 console.log( 'CPU Usage (%) : ' + cpu_usage );

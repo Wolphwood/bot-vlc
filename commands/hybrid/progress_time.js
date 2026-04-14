@@ -1,152 +1,140 @@
-const { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType, ComponentType, ButtonStyle } = require("discord.js");
-const client = require("../../app");
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+import { ApplicationCommandType, ApplicationCommandOptionType, EmbedBuilder } from "discord.js";
+import Locales from "#modules/Locales";
+import Emotes from "#modules/Emotes";
 
-const API = "https://api.agify.io/";
-
-client.APIs.push({ name: "Agify", link: API });
-
-module.exports = {
-    name: "YearProgress",
-    aliases: ['yp'],
-    category: "fun",
+export default {
+  name: "YearProgress",
+  aliases: ['yp', 'yearprogress'],
+  category: "fun",
+  discord: {
     type: ApplicationCommandType.ChatInput,
     options: [
-        {
-            type: ApplicationCommandOptionType.String,
-            name: "mode",
-            description: "Bar Color (non ascii bars)",
-            required: false,
-            choices: [
-                { name: "Remain", value: 'remain' },
-                { name: "Elapsed", value: 'elapsed' },
-            ]
-        },
-        {
-            type: ApplicationCommandOptionType.Boolean,
-            name: "ascii",
-            description: "ASCII display",
-            required: false,
-        },
-        {
-            type: ApplicationCommandOptionType.String,
-            name: "color",
-            description: "Bar Color (non ascii bars)",
-            required: false,
-            choices: [
-                { name: "Blue", value: 'blue' },
-                { name: "Green", value: 'green' },
-                { name: "Yellow", value: 'yellow' },
-                { name: "Brown", value: 'brown' },
-            ]
-        },
-        {
-            type: ApplicationCommandOptionType.Boolean,
-            name: "compact",
-            description: "Compact display",
-            required: false,
-        },
+      {
+        type: ApplicationCommandOptionType.String,
+        name: "mode",
+        description: "Afficher le temps écoulé ou restant",
+        required: false,
+        choices: [
+          { name: "Restant (Remain)", value: 'remain' },
+          { name: "Écoulé (Elapsed)", value: 'elapsed' },
+        ]
+      },
+      {
+        type: ApplicationCommandOptionType.Boolean,
+        name: "ascii",
+        description: "Utiliser des caractères ASCII",
+        required: false,
+      },
+      {
+        type: ApplicationCommandOptionType.String,
+        name: "color",
+        description: "Couleur de la barre (hors ASCII)",
+        required: false,
+        choices: [
+          { name: "Blue", value: 'blue' },
+          { name: "Green", value: 'green' },
+          { name: "Yellow", value: 'yellow' },
+          { name: "Brown", value: 'brown' },
+        ]
+      },
+      {
+        type: ApplicationCommandOptionType.Boolean,
+        name: "compact",
+        description: "Affichage compact",
+        required: false,
+      },
     ],
-    run: async ({client, interaction, message, args, GuildData, UserData, LangToUse }) => {
-        let discordElement = message || interaction;
-        let member = discordElement.member;
+  },
 
-        // Parse Args
-        let [mode, ascii, color, compact] = ['elapsed', false, 'blue', true];
-        
-        if (message) {
-            let colorReg = /(red|rouge|blue|bleu|jaune|yellow)/gi;
-            let sargs = args.map(a => a.simplify().toLowerCase());
-            
-            mode = args.shift();
-            ascii = sargs.includes('ascii');
-            color = sargs.join(' ').match(colorReg)?.get(0) ?? color;
-            compact = sargs.includes('compact') || sargs.includes('compacte');
-        }
+  run: async ({ interaction, message, args }) => {
+    const discordElement = interaction || message;
+    
+    // Valeurs par défaut
+    let config = {
+      mode: 'elapsed',
+      ascii: false,
+      color: 'blue',
+      compact: true
+    };
 
-        if (interaction) {
-            mode = args.find(a => a.name == "mode")?.value ?? mode;
-            ascii = args.find(a => a.name == "ascii")?.value ?? ascii;
-            color = args.find(a => a.name == "color")?.value ?? color;
-            compact = args.find(a => a.name == "compact")?.value ?? compact;
-        }
-
-        let progress = getYearProgress();
-
-        if (mode == "remain") {
-            let p = BuildProgressBar({
-                value: progress.remaining,
-                color, compact, ascii,
-            });
-            discordElement.reply({
-                embeds: [{
-                    color: 0xFFFFFF,
-                    title: `Temps restant de l'année : ${progress.remaining}%`,
-                    fields: [{
-                        name: '\u200b',
-                        value: p
-                    }]
-                }]
-            });
-
-        } else
-        if (mode == "elapsed") {
-            let p = BuildProgressBar({
-                value: progress.elapsed,
-                color, compact, ascii,
-            });
-            discordElement.reply({
-                embeds: [{
-                    color: 0xFFFFFF,
-                    title: `Progression de l'année : ${progress.elapsed}%`,
-                    fields: [{
-                        name: '\u200b',
-                        value: p
-                    }]
-                }]
-            });
-
-        } else {
-            discordElement.reply(`Unknown mode : \`${mode}\``);
-        }
-    },
-};
-module.exports.description = Locale.get(`commandinfo.${module.exports.name}.description`) || 'No description';
-module.exports.syntax = Locale.get(`commandinfo.${module.exports.name}.syntax`) || client.config.prefix + module.exports.name;
-
-function BuildProgressBar({ value, color, compact, ascii } = {}) {
-    let output = [];
-
-    let steps = ascii ? (compact ? 27 : 30) : (compact ? 15 : 27) 
-
-    let stepvalue = 100 / steps;
-
-    for (let i = 1; i <= steps; i++) {
-        let v = stepvalue * i;
-
-        if (ascii) {
-            output.push(Math.floor(value) >= v ? `▓` : value >= v - stepvalue ? `▒` : `░`);
-        } else {
-            output.push(Emotes.progress[color ?? 'blue'][i == 1 ? 'start' : i == steps ? 'end' : 'middle'][Math.floor(value) >= v ? 'full' : value >= v - stepvalue  ? 'partial' : 'empty']);
-        }
+    // Parsing des arguments (Message / ChatInput)
+    if (interaction) {
+      config.mode = interaction.options.getString('mode') ?? config.mode;
+      config.ascii = interaction.options.getBoolean('ascii') ?? config.ascii;
+      config.color = interaction.options.getString('color') ?? config.color;
+      config.compact = interaction.options.getBoolean('compact') ?? config.compact;
+    } else if (message) {
+      const sargs = args.map(a => a.simplify().toLowerCase());
+      const colorReg = /(red|rouge|blue|bleu|jaune|yellow|green|vert|brown|marron)/gi;
+      
+      if (['remain', 'restant'].includes(sargs[0])) config.mode = 'remain';
+      config.ascii = sargs.includes('ascii');
+      config.compact = sargs.includes('compact') || sargs.includes('compacte');
+      config.color = sargs.join(' ').match(colorReg)?.[0]?.replace('bleu', 'blue').replace('vert', 'green') ?? config.color;
     }
 
-    return output.join('');
+    const progress = getYearProgress();
+    const isRemain = config.mode === 'remain';
+    const valueToDisplay = isRemain ? progress.remaining : progress.elapsed;
+
+    const progressBar = BuildProgressBar({
+      value: valueToDisplay,
+      color: config.color,
+      compact: config.compact,
+      ascii: config.ascii
+    });
+
+    const embed = new EmbedBuilder()
+      .setColor(isRemain ? 0xFFA500 : 0x5865F2)
+      .setTitle(Locales.get(isRemain ? 'command.yearprogress.title.remain' : 'command.yearprogress.title.elapsed', [valueToDisplay]))
+      .addFields([{ name: '\u200b', value: progressBar }])
+      .setFooter({ text: `${new Date().getFullYear()} Progress` });
+
+    return discordElement.reply({ embeds: [embed] });
+  },
+
+  description: Locales.get(`commandinfo.YearProgress.description`) || 'Affiche la progression de l\'année en cours',
+  syntax: Locales.get(`commandinfo.YearProgress.syntax`) || 'yp [mode] [color] [ascii] [compact]',
+};
+
+/**
+ * Génère la barre de progression
+ */
+function BuildProgressBar({ value, color, compact, ascii }) {
+  const steps = ascii ? (compact ? 20 : 30) : (compact ? 12 : 24);
+  const stepValue = 100 / steps;
+  let output = [];
+
+  for (let i = 1; i <= steps; i++) {
+    const v = stepValue * i;
+    const isFull = Math.floor(value) >= v;
+    const isPartial = value >= v - stepValue;
+
+    if (ascii) {
+      output.push(isFull ? `▓` : isPartial ? `▒` : `░`);
+    } else {
+      const type = i === 1 ? 'start' : i === steps ? 'end' : 'middle';
+      const state = isFull ? 'full' : isPartial ? 'partial' : 'empty';
+      output.push(Emotes.progress[color]?.[type]?.[state] || Emotes.progress.blue[type][state]);
+    }
+  }
+
+  return output.join('');
 }
 
+/**
+ * Calcule le pourcentage de l'année
+ */
 function getYearProgress() {
-    const now = new Date(); // Date actuelle
-    const startOfYear = new Date(now.getFullYear(), 0, 1); // Début de l'année (1er janvier)
-    const endOfYear = new Date(now.getFullYear() + 1, 0, 1); // Début de l'année suivante
+  const now = new Date();
+  const year = now.getFullYear();
+  const start = new Date(year, 0, 1);
+  const end = new Date(year + 1, 0, 1);
 
-    const totalTime = endOfYear - startOfYear;
-    const elapsedTime = now - startOfYear;
-
-    const percentageElapsed = (elapsedTime / totalTime) * 100;
-    const percentageRemaining = 100 - percentageElapsed;
-
-    return {
-        elapsed: percentageElapsed.toFixed(2),
-        remaining: percentageRemaining.toFixed(2)
-    };
+  const elapsed = ((now - start) / (end - start)) * 100;
+  
+  return {
+    elapsed: elapsed.toFixed(2),
+    remaining: (100 - elapsed).toFixed(2)
+  };
 }

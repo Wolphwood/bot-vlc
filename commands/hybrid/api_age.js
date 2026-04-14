@@ -1,69 +1,89 @@
-const { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType, ComponentType, ButtonStyle } = require("discord.js");
-const client = require("../../app");
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+import { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType } from 'discord.js';
+import Locale from '#modules/Locales';
+import { Wait, getRandomRangeRound } from '#modules/Utils';
 
-const API = "https://api.agify.io/";
 
-client.APIs.push({ name: "Agify", link: API });
+const API_URL = "https://api.agify.io/";
 
-module.exports = {
-    name: "age",
-    aliases: ["agify"],
-    category: "fun",
+export function load(client) {
+  client.APIs.push({ name: "Agify", link: API_URL });
+}
+
+export default {
+  name: "age",
+  aliases: ["agify"],
+  category: "fun",
+  discord: {
     type: ApplicationCommandType.ChatInput,
     options: [
-        {
-            type: ApplicationCommandOptionType.String,
-            name: "name",
-            description: Locale.get(`commandinfo.age.option.nom.description`),
-            required: true,
-        },
+      {
+        type: ApplicationCommandOptionType.String,
+        name: "name",
+        description: Locale.get(`commandinfo.age.option.nom.description`),
+        required: true,
+      },
     ],
-    run: async ({client, interaction, message, args, GuildData, UserData, LangToUse }) => {
-        let discordElement = message || interaction;
-        let member = discordElement.member;
-        
-        // Check if args
-        if (!args[0]) return discordElement.reply({ content: Locale.get("command.dog.error.no_name") });
-        
-        // Parse Args
-        let name;
-        if (message) name = args.shift();
-        if (interaction) name = args.shift().value;
+  },
 
-        // Fetch API
-        let response = null;
-        try {
-            // CALL API
-            response = await fetch(API + "?" + new URLSearchParams({name}));
-        } catch {}
+  run: async ({ client, interaction, message, args, LangToUse }) => {
+    const discordElement = message || interaction;
+    const member = discordElement.member;
+
+    // Récupération du nom selon le type de commande (Hybride)
+    // Si c'est une interaction, on cherche dans les options, sinon dans les args du message
+    let name = interaction 
+      ? interaction.options.getString('name') 
+      : args[0];
+
+    if (!name) {
+      return discordElement.reply({ 
+        content: Locale.get("command.age.error.no_name") 
+      });
+    }
+
+    try {
+      const response = await fetch(`${API_URL}?${new URLSearchParams({ name })}`);
+
+      if (response.status === 429) {
+        return discordElement.reply({ content: Locale.get("command.age.error.429") });
+      }
+
+      if (!response.ok) {
+        const msg = await discordElement.reply({ 
+          content: Locale.get("command.age.error.api_failure"),
+          fetchReply: true 
+        });
         
-        if (response?.status === 429) return discordElement.channel.send({ content: Locale.get("command.age.error.429") });
-        if (response?.status !== 200) { // Handle API's failures
-            discordElement.reply({
-                content: Locale.get("command.age.error.api_failure"),
-            }).then(m => {
-                if (message) Wait(5_000).then(() => m.delete());
-            });
-            return false;
+        if (message) {
+          Wait(5000).then(() => msg.delete().catch(() => {}));
         }
+        return;
+      }
 
-        let data = await response.json();
-        embed = new EmbedBuilder()
-            .setColor(Array.from(Array(3), () => getRandomRangeRound(80,255)))
-            .addFields([
-                {
-                    name: Locale.get("command.age.embed.field.name", name.ucFirst()),
-                    value: Locale.get("command.age.embed.field.value", [ data.count, name, data.age || '?' ]),
-                }
-            ])
-            .setFooter({ text: Locale.get("generic.embed.footer", [ (discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username ]) })
-            .setTimestamp()
-        ;
+      const data = await response.json();
+      
+      const embed = new EmbedBuilder()
+        .setColor([getRandomRangeRound(80, 255), getRandomRangeRound(80, 255), getRandomRangeRound(80, 255)])
+        .addFields([{
+          name: Locale.get("command.age.embed.field.name", name.ucFirst()),
+          value: Locale.get("command.age.embed.field.value", [data.count, name, data.age || '?']),
+        }])
+        .setFooter({ 
+          text: Locale.get("generic.embed.footer", [
+            (interaction?.guild?.members?.me?.displayName || client.user.username),
+            client.config.version,
+            (member.displayName || member.user.username)
+          ]) 
+        })
+        .setTimestamp();
 
-        if (interaction) interaction.reply({ embeds: [ embed ] });
-        if (message) message.channel.send({ embeds: [ embed ] });
-    },
+      return discordElement.reply({ embeds: [embed] });
+
+    } catch (error) {
+      console.error(`[API ERROR: ${name}]`, error);
+      return discordElement.reply({ 
+        content: Locale.get("command.age.error.api_failure") 
+      });
+    }
+  },
 };
-module.exports.description = Locale.get(`commandinfo.${module.exports.name}.description`) || 'No description';
-module.exports.syntax = Locale.get(`commandinfo.${module.exports.name}.syntax`) || client.config.prefix + module.exports.name;

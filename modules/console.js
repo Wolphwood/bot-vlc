@@ -1,71 +1,134 @@
-// ========================================================================== //
-global.loadedModules.modules.push({
-    name: "Upgraded Console",
-    version: "3.1"
-});
-// ========================================================================== //
+import util from 'util';
+import fs from 'fs';
+import path from 'path';
+import config from '#config';
+import { getRandomRangeRound } from './Utils.js';
 
-const util = require('util');
-const fs = require('fs');
+const original = {
+  log: console.log,
+  warn: console.warn,
+  info: console.info,
+  error: console.error,
+};
 
-console.CONSOLE_DEBUG = require('../config').debug;
-const oLog = console.log;
-const oWarn = console.warn;
-const oInfo = console.info;
-const oError = console.error;
+// Configuration
+const DEBUG_ENABLED = config.debug || false;
 
-function writeit() {
-	let date = new Date().toLocaleDateString("fr-FR").replace(/\//g, "-");
-	
-	if (!fs.existsSync('./logs/')) {
-		fs.mkdirSync('./logs/');
-	}
 
-	fs.appendFileSync(`./logs/${date}.log`, [...arguments].join(', ') + '\n');
-}
+const LOG_DIR = path.join(process.cwd(), 'logs');
+if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
 
-console.llog = function() {
-	writeit.apply(this, arguments);
-	oLog.apply(this, arguments);
-}
-console.warn = function() {
-	writeit.apply(this, ['[WARN]', ...arguments]);
-	oWarn.apply(this, ['\x1B[38;5;0m\x1B[48;5;208m[ WARN ]\x1B[0m', ...arguments]);
-}
-console.info = function() {
-	writeit.apply(this, ['[INFO]', ...arguments]);
-	oInfo.apply(this, [`\x1B[38;5;0m\x1B[48;5;27m[ INFO ]\x1B[0m`, ...arguments]);
-}
-console.error = function() {
-	writeit.apply(this, ['[ERROR]', ...arguments]);
-	oError.apply(this, ['\x1B[38;5;0m\x1B[48;5;196m[ ERROR ]\x1B[0m', ...arguments]);
-}
+const getLogStream = () => {
+  const today = new Date().toISOString().split('T')[0];
+  return fs.createWriteStream(path.join(LOG_DIR, `${today}.log`), { flags: 'a' });
+};
 
-console.log = function() {
-	today = new Date();y = today.getFullYear();mm = (today.getMonth() >= 10 ? today.getMonth()+1 : "0"+(today.getMonth()+1));dd = (today.getDay() >= 10 ? today.getDay() : "0"+today.getDay());hrs = (today.getHours() >= 10 ? today.getHours() : "0"+today.getHours());min = (today.getMinutes() >= 10 ? today.getMinutes() : "0"+today.getMinutes());sec = (today.getSeconds() >= 10 ? today.getSeconds() : "0"+today.getSeconds());
-	console.llog.apply(this,[`[${dd}-${mm}-${y} ${hrs}:${min}:${sec}]`,...arguments]);
-}
-console.blank = (n) => {
-	oLog(Array.from(Array(n||1),() => '\n').join(''))
-}
-console.debug = function() {
-	if (!console.CONSOLE_DEBUG) return;
+let logStream = getLogStream();
 
-	console.log.apply(this,['[ DEBUG ]',...arguments]);
-}
-console.inspect = function() {
-	let keys = Object.keys(arguments);
+// Utilitaire pour l'écriture dans les fichiers logs
+const writeToLog = (level, ...args) => {
+  const timestamp = new Date().toLocaleTimeString('fr-FR', { hour12: false });
+  
+  const message = args.map(arg => {
+    if (typeof arg === 'object') return JSON.stringify(arg, (k,v) => typeof v == 'bigint' ? v.toString() : v, 2);
+    return String(arg).replace(/\x1B\[[0-9;]*m/g, '');
+  }).join(' ');
 
-	if (arguments.length > 1) {
-		let farg = keys.shift();
-		console.log.apply(this, [util.inspect(arguments[farg], {showHidden: false, depth: null, colors: true})]);
+  const entry = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
+  logStream.write(entry);
+};
 
-		keys.forEach(key => {
-			let argument = arguments[key];
-			console.llog.apply(this, [util.inspect(argument, {showHidden: false, depth: null, colors: true})]);
-		});
-	} else {
-		console.log.apply(this, [util.inspect(arguments[keys[0]], {showHidden: false, depth: null, colors: true})]);
-	}
-}
-module.exports = console;
+// Générateur de timestamp [DD-MM-YYYY HH:mm:ss]
+const getTimestamp = () => {
+  const now = new Date();
+  const d = String(now.getDate()).padStart(2, '0');
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const y = now.getFullYear();
+  const h = String(now.getHours()).padStart(2, '0');
+  const min = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  return `[${d}-${m}-${y} ${h}:${min}:${s}]`;
+};
+
+// --- Extension de la console ---
+
+// llog : Log brut sans timestamp (pour tes titres/arbres)
+console.llog = (...args) => {
+  writeToLog('log', ...args);
+  original.log(...args);
+};
+
+console.log = (...args) => {
+  const ts = getTimestamp();
+  writeToLog('log', ts, ...args);
+  original.log(ts, ...args);
+};
+
+console.warn = (...args) => {
+  const ts = getTimestamp();
+  writeToLog('warn', ts, ...args);
+  original.warn(`${ts} \x1B[38;5;0m\x1B[48;5;208m[ WARN ]\x1B[0m`, ...args);
+};
+
+console.info = (...args) => {
+  const ts = getTimestamp();
+  writeToLog('info', ts, ...args);
+  original.info(`${ts} \x1B[38;5;0m\x1B[48;5;27m[ INFO ]\x1B[0m`, ...args);
+};
+
+console.error = (...args) => {
+  const ts = getTimestamp();
+  writeToLog('error', ts, ...args);
+  original.error(`${ts} \x1B[38;5;0m\x1B[48;5;196m[ ERROR ]\x1B[0m`, ...args);
+};
+
+console.fatal = (...args) => {
+  const ts = getTimestamp();
+  const width = process.stdout.columns || 80;
+  const char = "*";
+
+  const L = (...args) => {
+    writeToLog('fatal', ts, ...args);
+    
+    // On traite le contenu pour en faire une seule string stylisée
+    const formatted = args
+      .map(a => typeof a == 'string' ? a : util.inspect(a, { depth: null, colors: false }))
+      .join(' ') // On simule le comportement de console.log pour les multiples args
+      .split('\n')
+      .map(line => `\x1B[38;5;0m\x1B[48;5;196m\x1B[K${line}\x1B[0m`)
+      .join('\n');
+
+    original.error(formatted);
+  };
+
+  L((char).repeat(width));
+  L("FATAL ERROR DETECTED");
+  L("");
+  L(...args);
+  L("");
+  L((char).repeat(width));
+};
+
+console.blank = (n = 1) => {
+  if (n == 1) return original.log(''); 
+  original.log('\n'.repeat(Math.max(0, n - 1)));
+};
+
+console.debug = (...args) => {
+  if (!DEBUG_ENABLED) return;
+  console.log('\x1B[38;5;0m\x1B[48;5;245m[ DEBUG ]\x1B[0m', ...args);
+};
+
+console.inspect = (...args) => {
+  args.forEach(arg => {
+    console.llog(util.inspect(arg, { 
+      showHidden: false,
+      maxArrayLength: null,
+      maxStringLength: null,
+      depth: null,
+      colors: true 
+    }));
+  });
+};
+
+export default console;

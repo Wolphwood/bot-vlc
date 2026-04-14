@@ -1,61 +1,73 @@
-const { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType, ComponentType, ButtonStyle } = require("discord.js");
-const client = require("../../app");
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+import { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType } from "discord.js";
+import Locale from "#modules/Locales";
+import { getRandomRangeRound, Wait } from "#modules/Utils";
 
-const IMAGE_API = "https://randomfox.ca/";
+const IMAGE_API = "https://randomfox.ca";
 
-client.APIs.push({ name: "Random Fox", link: IMAGE_API });
+export const load = async (client) => {
+  if (!client.APIs.some(a => a.link === IMAGE_API)) {
+    client.APIs.push({ name: "Random Fox", link: IMAGE_API });
+  }
+};
 
-module.exports = {
-    name: "fox",
-    aliases: ["renard","f"],
-    category: "fun",
+export async function FetchImageAPI() {
+  try {
+    const data = await fetch(`${IMAGE_API}/floof`, { headers: { 'Accept': 'application/json' } }).then(r => r.json());
+    return data.image;
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
+}
+
+export default {
+  name: "fox",
+  aliases: ["renard", "f"],
+  category: "fun",
+  discord: {
     type: ApplicationCommandType.ChatInput,
     options: [
-        {
-            type: ApplicationCommandOptionType.Subcommand,
-            name: "image",
-            aliases: ["img", "i"],
-            description: Locale.get(`commandinfo.fox.option.image.description`),
-        },
+      {
+        type: ApplicationCommandOptionType.Subcommand,
+        name: "image",
+        aliases: ["img", "i"],
+        description: Locale.get(`commandinfo.fox.option.image.description`),
+      },
     ],
-    run: async ({client, interaction, message, args, GuildData, UserData, LangToUse }) => {
-        let discordElement = message || interaction;
-        let member = discordElement.member;
+  },
+  run: async ({ client, interaction, message, args, GuildData, UserData, LangToUse }) => {
+    let discordElement = message || interaction;
+    let member = discordElement.member;
 
-        let subcommand = "image";
-        
-        let embed, response, data;
-        switch (subcommand.toLowerCase().simplify()) {
-            default:
-                try {
-                    // CALL API
-                    response = await fetch(IMAGE_API + "floof");
-                } catch {}
-                
-                if (response.status !== 200) { // Handle API's failures
-                    discordElement.reply({
-                        content: Locale.get("command.fox.error.api_failure"),
-                    }).then(m => {
-                        if (message) Wait(5_000).then(() => m.delete());
-                    });
-                    return false;
-                }
+    let subcommand = "image";
 
-                data = await response.json();
-                embed = new EmbedBuilder()
-                    .setColor(Array.from(Array(3), () => getRandomRangeRound(127,255)))
-                    .setImage(data.image)
-                    .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
-                    .setTimestamp()
-                ;
+    let embed, response, data;
+    switch (subcommand.toLowerCase().simplify()) {
+      default:
+        try {
+          // CALL API
+          response = await fetch(IMAGE_API + "/floof");
+        } catch {}
 
-                if (interaction) interaction.reply({ embeds: [ embed ] });
-                if (message) message.channel.send({ embeds: [ embed ] });
-            break;
+        if (response.status !== 200) { // Handle API's failures
+          discordElement.reply({
+            content: Locale.get("command.fox.error.api_failure"),
+          }).then(m => {
+            if (message) Wait(5_000).then(() => m.delete());
+          });
+          return false;
         }
-    },
+
+        data = await response.json();
+        embed = new EmbedBuilder()
+          .setColor(Array.from(Array(3), () => getRandomRangeRound(127, 255)))
+          .setImage(data.image)
+          .setFooter({ text: Locale.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
+          .setTimestamp();
+
+        if (interaction) interaction.reply({ embeds: [embed] });
+        if (message) message.channel.send({ embeds: [embed] });
+        break;
+    }
+  },
 };
-module.exports.description = Locale.get(`commandinfo.${module.exports.name}.description`) || 'No description';
-module.exports.syntax = Locale.get(`commandinfo.${module.exports.name}.syntax`) || client.config.prefix + module.exports.name;
