@@ -39,7 +39,7 @@ export default {
   name: Events.InteractionCreate,
   run: async ({ client, parameters: [interaction] }) => {
     if (!interaction.isButton()) return;
-    if (!/(GETLOG|GETFILE):[a-z-0-9]+(:[a-z-0-9]+)*/gmi.test(interaction.customId)) return;
+    if (!/(GETLOG|GETFILE|DELETE):[a-z-0-9]+(:[a-z-0-9]+)*/gmi.test(interaction.customId)) return;
 
     let userPermission = PERMISSION.USER;
     if (interaction.channel.type !== 'DM' && IsMessageAuthorAdmin(interaction, false)) userPermission = PERMISSION.GUILD_ADMIN;
@@ -50,14 +50,20 @@ export default {
 
     const [action, permissionName, ...extra] = interaction.customId.split(':');
 
-    if (!isDefined(PERMISSION[permissionName]) && userPermission < PERMISSION.ROOT) {
-      return interaction.reply({
-        flags: [MessageFlags.Ephemeral],
-        content: `❌ ${interaction.member} La permission \`${permissionName}\` n'existe pas.`
-      });
+    // if (!isDefined(PERMISSION[permissionName]) && userPermission < PERMISSION.ROOT) {
+    //   return interaction.reply({
+    //     flags: [MessageFlags.Ephemeral],
+    //     content: `❌ ${interaction.member} La permission \`${permissionName}\` n'existe pas.`
+    //   });
+    // }
+
+    let isForceAllowed = false;
+    if (extra[0] === interaction.member.id) {
+      isForceAllowed = true;
+      extra.shift();
     }
 
-    if (userPermission < (PERMISSION[permissionName] ?? PERMISSION.ROOT)) {
+    if (!isForceAllowed && userPermission < (PERMISSION[permissionName] ?? PERMISSION.ROOT)) {
       return interaction.reply({
         flags: [MessageFlags.Ephemeral],
         content: `❌ ${interaction.member} Tu n'as pas la permission pour utiliser ce bouton.`
@@ -105,6 +111,10 @@ export default {
             ]
           });
 
+          break;
+        }
+        case "DELETE": {
+          interaction.message?.delete().catch(noop);
           break;
         }
       }

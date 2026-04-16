@@ -14,23 +14,41 @@ const original = {
 // Configuration
 const DEBUG_ENABLED = config.debug || false;
 
-
 const LOG_DIR = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
 
 const getLogStream = () => {
-  const today = new Date().toISOString().split('T')[0];
-  return fs.createWriteStream(path.join(LOG_DIR, `${today}.log`), { flags: 'a' });
+  const now = new Date();
+  
+  const timestamp = now.toISOString()
+    .replace(/T/, '_')
+    .replace(/:/g, '-')
+    .replace(/\..+/, '');
+  
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  
+  const randomId = Math.random().toString(36).substring(2, 5);
+  
+  const fileName = `log_${timestamp}-${ms}_${randomId}.log`;
+  
+  return fs.createWriteStream(path.join(LOG_DIR, fileName));
 };
 
 let logStream = getLogStream();
 
-// Utilitaire pour l'écriture dans les fichiers logs
 const writeToLog = (level, ...args) => {
   const timestamp = new Date().toLocaleTimeString('fr-FR', { hour12: false });
   
   const message = args.map(arg => {
-    if (typeof arg === 'object') return JSON.stringify(arg, (k,v) => typeof v == 'bigint' ? v.toString() : v, 2);
+    // Si c'est une erreur, on extrait le message et la stack trace
+    if (arg instanceof Error || (arg && arg.stack && arg.message)) {
+      return util.inspect(arg, { depth: null, colors: false });
+    }
+    // Si c'est un objet classique, on garde votre logique JSON
+    if (typeof arg === 'object' && arg !== null) {
+      return JSON.stringify(arg, (k, v) => typeof v == 'bigint' ? v.toString() : v, 2);
+    }
+    // Pour le reste (string, number), on nettoie les codes couleurs ANSI
     return String(arg).replace(/\x1B\[[0-9;]*m/g, '');
   }).join(' ');
 
@@ -110,6 +128,7 @@ console.fatal = (...args) => {
 };
 
 console.blank = (n = 1) => {
+  writeToLog('\n'.repeat(Math.max(1, n)));
   if (n == 1) return original.log(''); 
   original.log('\n'.repeat(Math.max(0, n - 1)));
 };

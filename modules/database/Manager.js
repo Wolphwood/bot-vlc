@@ -4,7 +4,7 @@ import './MongooseConnection.js';
 
 import { gzipSync, gunzipSync } from 'zlib';
 import ShortUniqueId from '#modules/ShortUniqueId';
-import { PERMISSION } from '#constants';
+import { PERMISSION, SOP_PERMISSION } from '#constants';
 import { MD5 } from '#modules/Utils';
 
 Registry.register({
@@ -128,12 +128,15 @@ export class Manager {
 				try {
 					return new Models.ModelSopGroup(data).save();
 				} catch (err) {
+					console.error(err);
 					return null;
 				}
 			},
 			createWithAuth: async (data, member, userPermission) => {
 				let group = await this.SOP.group.create(data);
+
 				if (!group) return null;
+				await group.save();
 
 				return this.#GroupAuth(group.toObject(), member, userPermission);
 			},
@@ -237,8 +240,8 @@ export class Manager {
 				}
 
 				const sorts = {
-					alphabet: { name: -1 },
-					anti_alphabet: { name: 1 },
+					alphabet: { name: 1 },
+					anti_alphabet: { name: -1 },
 					ratio: { ratio: 1 },
 					anti_ratio: { ratio: -1 },
 				}
@@ -407,10 +410,7 @@ export class Manager {
 			delete: async (uid) => {
 				return await Models.ModelSopCharacter.deleteOne({ uid });
 			},
-			count: (slug) => {
-				let filter = {};
-				if (slug) filter.slug = slug;
-
+			count: (filter) => {
 				return Models.ModelSopCharacter.countDocuments(filter);
 			},
 			setSmashable: async (uid, value) => {

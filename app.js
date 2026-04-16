@@ -11,6 +11,18 @@ import path from 'path';
 
 import Locales from '#modules/Locales';
 
+// Gestion des erreurs fatales (Exceptions non capturées)
+process.on('uncaughtException', (err) => {
+  console.fatal('UNCAUGHT EXCEPTION:', err);
+  // On laisse un peu de temps au flux d'écriture pour finir avant de couper
+  setTimeout(() => process.exit(1), 500);
+});
+
+// Gestion des promesses rejetées non capturées
+process.on('unhandledRejection', (reason, promise) => {
+  console.fatal('UNHANDLED REJECTION at:', promise, 'reason:', reason);
+});
+
 fs.readdirSync('./assets/langs/').forEach(file => {
   if (file.endsWith('.json')) {
     let content = fs.readFileSync(path.join('./assets/langs/', file), 'utf-8');

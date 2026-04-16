@@ -63,7 +63,7 @@ export const ModelVenturePlayer = model('venture_player', new Schema({
 
 // export const ModelLog = model('log', new Schema({ uid: String, guild: String, type: String, data: Object, timestamp: Number }));
 export const ModelSopCharacter = model('sop_character', new Schema({
-	uid: {type: String, required: true},
+	uid: {type: String, unique: true, required: true},
 	group_slug: { type: String, required: true },
   name: {type: String, default: 'John Doe'},
 	arcs: {
@@ -115,7 +115,7 @@ export const ModelSopGroup = model('sop_group', new Schema({
   
   permissions: [{
     type: { type: String, required: true }, // guild, role, user
-    id: { type: String, unique: true, required: true },
+    id: { type: String, required: true },
     name: { type: String },
     guild: { type: String },
     value: { type: Number, default: 0 }, // BitFlag

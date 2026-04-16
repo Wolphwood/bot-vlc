@@ -10,7 +10,7 @@ import Emotes from "#modules/Emotes"
 import { dbManager } from "#modules/database/Manager"
 
 // Trier les personnages par nom
-function SortByName(a,b) {
+export function SortByName(a,b) {
   const kA = `${a.name} ${a.arc}`.simplify().toLowerCase();
   const kB = `${b.name} ${b.arc}`.simplify().toLowerCase();
   
@@ -20,7 +20,7 @@ function SortByName(a,b) {
 }
 
 // Trier les personnages par Ratio
-function SortByRatio(a,b) {
+export function SortByRatio(a,b) {
   let rA = softFixed((a.stats.smashed - a.stats.passed) / (a.stats.smashed + a.stats.passed));
   let rB = softFixed((b.stats.smashed - b.stats.passed) / (b.stats.smashed + b.stats.passed));
 
@@ -42,20 +42,13 @@ export async function GameSmashOrPass({ client, discordElement, GuildData, UserD
   let AllGroups = await dbManager.SOP.group.getWithAuth(null, discordElement.member, userPermission);
   loadingEmoteMessage.delete().catch(noop);
 
+
+
   const MenuGameSmashOrPass = new DiscordMenu({
   element: discordElement,
   ephemeral: true,
   collectorOptions: {
     idle: 2_147_483_647
-  },
-  onEnd: function() {
-    if (!this.deleteOnClose) {
-    this.message.edit({
-      embeds: this.message.embeds,
-      components: [],
-    });
-    this.message.react('🔒');
-    }
   },
   data: {
     color: {
@@ -897,4 +890,33 @@ export async function GetCachedOutfitAttachmentPreview(outfit) {
   }
 
   return GetCachedAttachment(cacheKey, previewFilename, previewPath);
+}
+
+export function NumerotedListToColumns(list, count) {
+  if (!list) return "```\u200b```";
+  if (list.length <= count) return "```\n"+ list.join(' | ') +"\n```";
+  
+  const segmenter = new Intl.Segmenter('fr', { granularity: 'grapheme' });
+  
+  const getVisualLength = (str) => {
+    if (!str) return 0;
+    return [...segmenter.segment(str)].length;
+  };
+
+  const size = Math.ceil(list.length / count);
+  const columns = Array.from(Array(count), (e, i) => list.slice(size * i, size * (i + 1)));
+
+  const widths = columns.map(col => 
+    col.length > 0 ? Math.max(...col.map(s => getVisualLength(s))) + 1 : 0
+  );
+
+  const compensate = (str) => !str ? '' : /^[0-9]\./g.test(str) ? " " + str : str;
+
+  const text = Array.from(Array(size), (e, i) => Array.from(Array(count), (ee, ii) => {
+    const c = compensate(columns[ii][i]);
+    const cLen = getVisualLength(c);
+    return [ c + " ".repeat(Math.max(0, widths[ii] - cLen)), '│' ];
+  }).flat().slice(0, -1).join(' ').trimEnd()).join('\n');
+
+  return "```\n" + text + "\n```";
 }

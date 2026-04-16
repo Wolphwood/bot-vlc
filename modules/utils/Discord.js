@@ -28,6 +28,7 @@ import {
 	getRandomRangeRound,
 	selfnoop,
 	isDefined,
+	isNull,
 } from "#modules/Utils";
 import { dbManager } from "#modules/database/Manager";
 
@@ -55,6 +56,8 @@ export function IsMessageAuthorAdmin(element) {
 
 // MARK: ModalForm
 export class ModalForm {
+	#onErrorCallback;
+
 	constructor({ interaction, title, translate, translateKeys, LangToUse, time } = {}) {
 		this.interaction = interaction ?? null;
 		this.title = title ?? "Modal";
@@ -212,32 +215,41 @@ export class ModalForm {
 		return Object.assign(Object.create(Object.getPrototypeOf(this)), this);
 	}
 
+	onError(cb) {
+		this.#onErrorCallback = isFunction(cb) ? cb : null;
+		return this;
+	}
+
+	handleError(err) {
+    if (typeof this.#onErrorCallback === 'function') this.#onErrorCallback(err, this.interaction);
+    return null;
+  };
+
 	async popup() {
+		if (this.interaction.deferred || this.interaction.replied) {
+			return this.handleError(new Error("Interaction déjà acquittée."));
+		}
+
 		const modal = this.#buildModal();
 
-		if (this.interaction.isRepliable()) {
+		try {
 			await this.interaction.showModal(modal);
 
 			const filter = async (interaction) => {
 				if (interaction.customId === modal.custom_id) {
-					await interaction.deferUpdate();
+					await interaction.deferUpdate().catch(noop);
 					return true;
 				}
 				return false;
 			}
 
-			try {
-				let entries = await this.interaction.awaitModalSubmit({ filter, time: this.time })
-					.then(data => data.fields.fields.map((k,v) => [v.split(':')[1], k.value]))
-					.catch(noop)
-				;
-
-				if (!entries) return null;
-				return new Collection(entries);
-			} catch(err) {
-				console.error(`[ MODAL-ERROR : ${Date.timestamp()} ]`, err);
-				return null;
-			}
+			const submitted = await this.interaction.awaitModalSubmit({ filter, time: this.time });
+			const entries = submitted.fields.fields.map((k, v) => [v.split(':')[1], k.value]);
+			
+			return new Collection(entries);
+		} catch(err) {
+			if (err.code === 'INTERACTION_COLLECTOR_ERROR') return null;
+			return this.handleError(err);
 		}
 	}
 }
@@ -429,7 +441,8 @@ export class DiscordMenu {
 			].includes(data.type) || (!data.type && !data.content));
 
 			if (isInteractive) {
-				let uid = this.sid.random();
+				const forcedId = data.customId || data.custom_id;
+				let uid = forcedId || this.sid.random();
 				this.actions[uid] = data.action ?? null;
 
 				if (typeof data.disabled === 'function') {
@@ -440,7 +453,7 @@ export class DiscordMenu {
 					type: ComponentType.Button,
 					style: ButtonStyle.Secondary,
 					...data,
-					customId: `${this.uid}:${uid}`
+					customId: forcedId || `${this.uid}:${uid}`
 				};
 			} else
 			if (data.type === ComponentType.TextDisplay || (!data.type && data.content)) {
@@ -523,13 +536,17 @@ export class DiscordMenu {
 		let value = Number(target);
 		if (!isNaN(value) && value >= 0 && value < this.pages.length) {
 			if (this.pages[value]) this.pageIndex = value;
+			return true;
 		} else
 		if (this.#pagemapIndex.has(target)) {
 			this.pageIndex = this.#pagemapIndex.get(target);
+			return true;
 		}
+		return false;
 	}
 
 	async handleError(error) {
+		console.error(`DISCORD MENU ERROR :`);
 		console.error(error);
 		
 		try {
@@ -577,6 +594,7 @@ export class DiscordMenu {
 							type: ComponentType.TextDisplay,
 							content: [
 								"# uh-oh an error has occured",
+								`## ${error.name || 'UNKNOWN ERROR'}: ${error.message}`,
 								`${this.element.member} ${GetRandomFunnyErrorMessage()}`,
 								image_url ? "In compensation, please accept this cute image:" : null,
 							].filter(e => isDefined(e)).join("\n")
@@ -682,7 +700,7 @@ export class DiscordMenu {
 		return hasV2 ? { components, files, flags } : { content, components, embeds, files, flags };
 	}
 
-	async runHook(parent, hookName, args = {}) {
+	async _runHook_old(parent, hookName, args = {}) {
 		let hook = parent[hookName];
 		if (typeof hook === 'function') {
 			try {
@@ -692,69 +710,69 @@ export class DiscordMenu {
 			}
 		}
 	}
+	async runHook(context, hookName, args = {}) {
+		let hook = context[hookName];
 
-	async send(OPTIONS = {}) {
-		if (this.sent) throw new BotError("This menu is already sent.");
-
-		try {
-			this.uid = this.element.id +'_'+ Date.timestamp();
-
-			let _beforeUpdate = await this.runHook(this, 'beforeUpdate', {});
-			if (_beforeUpdate) return;
-
-			let _pageBeforeUpdate = await this.runHook(this.page, 'beforeUpdate', {});
-			if (_pageBeforeUpdate) return;
-
-			let payload = await this.prepareMessage(OPTIONS);
-
-			if ( this.element instanceof Message ) {
-				this.message = await this.element.reply(payload);
+		if (typeof hook === 'function') {
+			try {
+				return await hook.call(this, args);
+			} catch (err) {
+				await this.handleError(err);
 			}
-
-			if ( this.element instanceof CommandInteraction ) {
-				this.message = await this.element.reply(payload);
-			}
-
-			if (this.message) {
-				this.sent = true;
-			}
-
-			this.collector = null;
-
-			let _afterUpdate = await this.runHook(this, 'afterUpdate', {});
-			if (_afterUpdate) return;
-
-			let _pageafterUpdate = await this.runHook(this.page, 'afterUpdate', {});
-			if (_pageafterUpdate) return; // useless but, yes.
-		} catch (error) {
-			await this.handleError(error);
 		}
 	}
 
-	async update(OPTIONS = {}) {
-		if (this.collector.ended) return;
-		if (!this.page) return;
+	async #refresh(isInitial = false, OPTIONS = {}) {
+		let initialPage;
+		
+		// Boucle avec detection de redirection
+		while (initialPage !== this.page) {
+			initialPage = this.page;
 
-		try {
-			let _beforeUpdate = await this.runHook(this, 'beforeUpdate', OPTIONS);
-			if (_beforeUpdate) return;
+			// Hook Global
+			if (await this.runHook(this, 'beforeUpdate', OPTIONS)) return false;
+			if (this.page !== initialPage) continue;
 
-			let _pageBeforeUpdate = await this.runHook(this.page, 'beforeUpdate', OPTIONS);
-			if (_pageBeforeUpdate) return;
-
-			let { content, components, embeds, files } = await this.prepareMessage();
-
-			if ( this.element instanceof Message ) await this.message.edit({content, components, embeds, files, attachments: []});
-			if ( this.element instanceof CommandInteraction ) await this.element.editReply({content, components, embeds, files, attachments: []});
-
-			let _afterUpdate = await this.runHook(this, 'afterUpdate', OPTIONS);
-			if (_afterUpdate) return;
-
-			let _pageafterUpdate = await this.runHook(this.page, 'afterUpdate', OPTIONS);
-			if (_pageafterUpdate) return; // useless but, yes.
-		} catch (error) {
-			await this.handleError(error);
+			// Hook de Page
+			if (await this.runHook(this.page, 'beforeUpdate', OPTIONS)) return false;
+			if (this.page !== initialPage) continue;
 		}
+
+		// Préparation du payload
+		const payload = await this.prepareMessage(OPTIONS);
+
+		// Exécution de l'ordre 66
+		if (isInitial) { // 1st Send
+			if (this.element.replied || this.element.deferred) {
+				this.message = await this.element.editReply(payload);
+			} else {
+				this.message = await this.element.reply(payload);
+			}
+			this.sent = true;
+		} else { // Updating
+			if (this.element instanceof Message) {
+				await this.message.edit({ ...payload, attachments: [] });
+			} else {
+				await this.element.editReply({ ...payload, attachments: [] });
+			}
+		}
+
+		// Hooks After Global & de la page
+		await this.runHook(this, 'afterUpdate', OPTIONS);
+		await this.runHook(this.page, 'afterUpdate', OPTIONS);
+		
+		return true;
+	}
+
+	async send(OPTIONS = {}) {
+		if (this.sent) throw new BotError("This menu is already sent.");
+		this.uid = this.element.id + '_' + Date.timestamp();
+		return await this.#refresh(true, OPTIONS);
+	}
+	
+	async update(OPTIONS = {}) {
+		if (this.collector?.ended || !this.page) return;
+		return await this.#refresh(false, OPTIONS);
 	}
 
 	ignoreDefaultCollectOnce() {
@@ -774,7 +792,7 @@ export class DiscordMenu {
 					restart = false;
 
 					this.collector = this.message.createMessageComponentCollector(Object.assign( {...this.collectorOptions}, { filter: this.filter } ));
-
+					
 					let reason = await new Promise((rs,re) => {
 						try {
 							this.collector.on('collect', async (interaction) => {
@@ -784,7 +802,6 @@ export class DiscordMenu {
 								let action = this.actions[actionKey];
 
 								if (!action) return;
-								interaction.deferUpdate().catch(noop);
 
 								this.runHook(this.page, 'onCollect', { interaction });
 
@@ -801,7 +818,6 @@ export class DiscordMenu {
 									const allowed = this.#CollectorFilter({ interaction });
 									if (!allowed) return;
 								}
-
 
 								let stillUpdate = true;
 
@@ -840,13 +856,14 @@ export class DiscordMenu {
 									} catch(err) {
 										this.handleError(err);
 									}
+								} else {
+									interaction.deferUpdate().catch(noop);
 								}
 
 								// Sécurité de range des pages
 								this.pageIndex = Math.clamp(this.pageIndex, 0, this.pages.lastIndex);
-								// OLD // TO DELETE
-								// if (this.pageIndex > this.pages.length - 1) this.pageIndex = this.pages - 1;
-								// if (this.pageIndex < 0) this.pageIndex = 0;
+
+								if (!interaction.deferred && !interaction.replied) interaction.deferUpdate();
 
 								if (stillUpdate) await this.update({ client, interaction });
 							});

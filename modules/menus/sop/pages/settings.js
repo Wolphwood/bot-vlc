@@ -1,42 +1,10 @@
-import fs from 'fs';
 import { PERMISSION, SOP_PERMISSION } from "#constants";
 import { dbManager } from "#modules/database/Manager";
 import Emotes from "#modules/Emotes";
-import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, selfnoop as sn, selfnoop, isString, ValidateArray } from "#modules/Utils";
-import { AttachmentBuilder, ButtonStyle, Collection, ComponentType, userMention } from "discord.js";
+import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, isString, ValidateArray } from "#modules/Utils";
+import { ButtonStyle, Collection, ComponentType, userMention } from "discord.js";
 
-import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar } from "../index.js";
-
-const formatPct = new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 1 });
-
-function NumerotedListToColumns(list, count) {
-  if (!list) return "```\u200b```";
-  if (list.length <= count) return "```\n"+ list.join(' | ') +"\n```";
-  
-  const segmenter = new Intl.Segmenter('fr', { granularity: 'grapheme' });
-  
-  const getVisualLength = (str) => {
-    if (!str) return 0;
-    return [...segmenter.segment(str)].length;
-  };
-
-  const size = Math.ceil(list.length / count);
-  const columns = Array.from(Array(count), (e, i) => list.slice(size * i, size * (i + 1)));
-
-  const widths = columns.map(col => 
-    col.length > 0 ? Math.max(...col.map(s => getVisualLength(s))) + 1 : 0
-  );
-
-  const compensate = (str) => !str ? '' : /^[0-9]\./g.test(str) ? " " + str : str;
-
-  const text = Array.from(Array(size), (e, i) => Array.from(Array(count), (ee, ii) => {
-    const c = compensate(columns[ii][i]);
-    const cLen = getVisualLength(c);
-    return [ c + " ".repeat(Math.max(0, widths[ii] - cLen)), '│' ];
-  }).flat().slice(0, -1).join(' ').trimEnd()).join('\n');
-
-  return "```\n" + text + "\n```";
-}
+import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns } from "../index.js";
 
 export default [
   {
@@ -79,7 +47,7 @@ export default [
               label: "Gérer",
               action: "goto:settings-character",
               style: ButtonStyle.Primary,
-              disabled: !canManageAnyGroup
+              // disabled: !canManageAnyGroup
             }
           },
           ".---",
@@ -113,7 +81,7 @@ export default [
             'Un groupe est une "collection" assimilable à un univers différents par exemple.',
             "",
             "Collections modifiable :",
-            sttgs.pages[sttgs.page].map((e,i) => `${(i+1)+(sttgs.page*25)}. ${e.name}`).join('\n'),
+            NumerotedListToColumns(sttgs.pages[sttgs.page].map((e,i) => `${(i+1)+(sttgs.page*25)}. ${e.name}`), 2),
             "",
             hasMultiplePages && `-# Vitesse de navigation : ±${[1,5,10][sttgs.navspeed]} | Page ${sttgs.page+1}/${sttgs.pages.length}`
           ].filter(isString),
@@ -127,7 +95,7 @@ export default [
                   .addRow().addTextField({ name: 'slug', label: "Slug du groupe", placeholder: "na", required: false })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
 
                 let createdgroup = await dbManager.SOP.group.createWithAuth({
@@ -140,8 +108,6 @@ export default [
 
                 this.data.groups.push(createdgroup);
                 this.data._settings._group.slug = createdgroup.slug;
-
-                this.goto('settings-group-edit')
 
                 return true;
               },
@@ -173,8 +139,8 @@ export default [
             {
               type: ComponentType.StringSelect,
               placeholder: "Selectionner un groupe",
-              options: sttgs.pages[sttgs.page]?.map(group => ({
-                label: group.name,
+              options: sttgs.pages[sttgs.page]?.map((group, index) => ({
+                label: `${(index+1)+(sttgs.page*25)}. ${group.name}`,
                 value: group.slug,
                 default: group.slug == sttgs.slug,
               })) ?? [{ label: "Aucun group a afficher", value: "none", default: true }],
@@ -336,7 +302,7 @@ export default [
                   modal.addRow().addTextField({ name: 'id',   label: "Id de l'utilisateur",  placeholder: this.element.member.id });
                 }
 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('id')) return false;
                 
                 let id = result.get('id');
@@ -374,7 +340,7 @@ export default [
                   .addRow().addTextField({ name: 'name', label: "Nom indicatif de la permission", placeholder: sttgs.permission.name, value: sttgs.permission.name })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
 
                 sttgs.permission.name = result.get('name');
@@ -582,7 +548,7 @@ export default [
                   .addRow().addTextField({ name: 'name', label: "Nom du personnage", placeholder: interaction.member.displayName })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
 
                 let createdchar = await dbManager.SOP.character.create({
@@ -812,7 +778,7 @@ export default [
                   .addRow().addTextField({ name: 'name', label: "Nom de l'arc narratif", placeholder: "Nom de fou furieux" })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
 
                 let updated = await dbManager.SOP.character.updateArc(sttgs.character.uid, {
@@ -835,7 +801,7 @@ export default [
                   .addRow().addTextField({ name: 'name', label: "Nom de l'arc narratif", placeholder: "Nom de fou furieux", value: sttgs.arcs.mapped[sttgs.arc]?.name })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
 
                 let updated = await dbManager.SOP.character.updateArc(sttgs.character.uid, {
@@ -997,7 +963,7 @@ export default [
                   .addRow().addTextField({ name: 'name', label: "Nom de la tenue", placeholder: sttgs.outfit.name, value: sttgs.outfit.name })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
 
                 const was = { name: sttgs.outfit.name, arc: sttgs.outfit.arc };
@@ -1106,7 +1072,7 @@ export default [
                   .addRow().addTextField({ name: 'link', label: "Lien de l'artiste", placeholder: "Laisse vide pour ne ne rien mettre", value: sttgs.outfit.artist?.link, required: false })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
 
                 if (!result) return false;
                 
@@ -1139,7 +1105,7 @@ export default [
                   .addRow().addTextField({ name: 'name', label: "Nom du personnage", placeholder: sttgs.character.name, value: sttgs.character.name })
                 ;
                 
-                let result = await modal.setInteraction(interaction).popup();
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
                 if (!result || !result.get('name')) return false;
                 
                 let updated = await dbManager.SOP.character.rename(sttgs.character.uid, result.get('name'));
@@ -1228,15 +1194,23 @@ export default [
 
             // OUTFITS
             sttgs.mode === "outfits" && [
-              "## 👕 Qu'est-ce qu'une Tenue (Outfit) ?",
-              "Une **Tenue** définit l'apparence visuelle de votre personnage à un instant donné.",
-              "Contrairement à l'Arc qui définit une période, la Tenue est un élément de personnalisation immédiat.",
-              "Lier une tenue à un **Arc Narratif** permet de filtrer automatiquement les styles cohérents avec l'évolution du personnage.",
-              "Par exemple : une armure lourde pour un arc de guerre, ou une tenue civile pour un arc de repos.",
-              "Vous pouvez posséder plusieurs tenues par arc (tenue de nuit, tenue de combat, etc.) pour adapter votre look au contexte de votre RP.",
-              "",
-              `${sttgs.character.name} possède actuellement ${sttgs.character.outfits.length} tenue(s) au total.`,
-              "",
+              !sttgs.outfit && [
+                "## 👕 Qu'est-ce qu'une Tenue (Outfit) ?",
+                "Une **Tenue** définit l'apparence visuelle de votre personnage à un instant donné.",
+                "Contrairement à l'Arc qui définit une période, la Tenue est un élément de personnalisation immédiat.",
+                "Lier une tenue à un **Arc Narratif** permet de filtrer automatiquement les styles cohérents avec l'évolution du personnage.",
+                "Par exemple : une armure lourde pour un arc de guerre, ou une tenue civile pour un arc de repos.",
+                "Vous pouvez posséder plusieurs tenues par arc (tenue de nuit, tenue de combat, etc.) pour adapter votre look au contexte de votre RP.",
+                "",
+                `${sttgs.character.name} possède actuellement ${sttgs.character.outfits.length} tenue(s) au total.`,
+                "",
+              ],
+              sttgs.outfit && [
+                `## ${sttgs.outfit.name}`,
+                sttgs.outfit.arc && `### Arc: ${sttgs.arcs.mapped[sttgs.outfit.arc]?.name || 'Arc inconnu'}`,
+                sttgs.outfit.artist && "Visuel créer par " + (sttgs.outfit.artist.link ? `[${sttgs.outfit.artist.name}](${sttgs.outfit.artist.link})` : sttgs.outfit.artist),
+                "",
+              ],
               (!sttgs.outfit && ValidateArray(sttgs.outfits.pages[sttgs.outfits.page], []).length > 0) && [
                 NumerotedListToColumns(sttgs.outfits.pages[sttgs.outfits.page]?.map((outfit, index) => {
                   return `${(index+1)+(sttgs.outfits.page*25)}. ${outfit.name}`.limit(30);

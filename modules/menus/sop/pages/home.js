@@ -25,7 +25,6 @@ export default [
               {
                 emoji: "▶",
                 label: "Jouer",
-                disabled: true,
                 style: ButtonStyle.Primary,
                 action: "goto:game-setup"
               },
