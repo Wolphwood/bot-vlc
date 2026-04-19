@@ -73,11 +73,15 @@ export const ModelSopCharacter = model('sop_character', new Schema({
     } ],
     default: []
   },
-	stats: {
-		smashed: { type: Number, default: 0 },
-		passed: { type: Number, default: 0 },
-	},
+  stats: {
+    smashed: { type: Number, default: 0 },
+    super_smashed: { type: Number, default: 0 },
+    passed: { type: Number, default: 0 },
+    super_passed: { type: Number, default: 0 },
+  },
 	rules: {
+		can_be_super_smash: { type: Boolean, default: true },
+		can_be_super_pass: { type: Boolean, default: true },
 		can_be_smash: { type: Boolean, default: true },
 		can_be_pass: { type: Boolean, default: true },
     owner: { type: String, required: true },

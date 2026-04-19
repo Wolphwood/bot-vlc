@@ -1,10 +1,10 @@
 import { PERMISSION, SOP_PERMISSION } from "#constants";
 import { dbManager } from "#modules/database/Manager";
 import Emotes from "#modules/Emotes";
-import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, isString, ValidateArray } from "#modules/Utils";
-import { ButtonStyle, Collection, ComponentType, userMention } from "discord.js";
+import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, isString, ValidateArray, isDefined, selfnoop, Wait, deleteAfter } from "#modules/Utils";
+import { ButtonStyle, Collection, ComponentType } from "discord.js";
 
-import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns } from "../index.js";
+import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName } from "../index.js";
 
 export default [
   {
@@ -53,6 +53,7 @@ export default [
           ".---",
           [
             { emoji: '🏠', label: "Accueil", action: "goto:home", style: ButtonStyle.Secondary },
+            { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
           ]
         ]
       }];
@@ -66,6 +67,7 @@ export default [
     },
     components: function() {
       let sttgs = this.data._settings._group;
+      const displayOptions = this.data.displayOptions;
       const hasMultiplePages = sttgs.pages.length > 1;
 
       let deleteText = ['Supprimer','Sûr ?', 'CERTAIN•E ?!'][sttgs.delete];
@@ -81,7 +83,7 @@ export default [
             'Un groupe est une "collection" assimilable à un univers différents par exemple.',
             "",
             "Collections modifiable :",
-            NumerotedListToColumns(sttgs.pages[sttgs.page].map((e,i) => `${(i+1)+(sttgs.page*25)}. ${e.name}`), 2),
+            NumerotedListToColumns(sttgs.pages[sttgs.page].map((e,i) => `${(i+1)+(sttgs.page*25)}. ${e.name}`), displayOptions.numberOfColumn),
             "",
             hasMultiplePages && `-# Vitesse de navigation : ±${[1,5,10][sttgs.navspeed]} | Page ${sttgs.page+1}/${sttgs.pages.length}`
           ].filter(isString),
@@ -465,6 +467,7 @@ export default [
     },
     components: function() {
       let sttgs = this.data._settings._character;
+      const displayOptions = this.data.displayOptions;
       let nav = sttgs.slug ? sttgs.chr : sttgs.grp;
       let group = this.data.groups.find(group => group.slug == sttgs.slug);
 
@@ -477,14 +480,14 @@ export default [
             !sttgs.slug && [
               "## Veuillez selectionner un groupe",
               (sttgs.grp.pages.length === 0) ? "- Aucun groupe à afficher." :
-              NumerotedListToColumns(sttgs.grp.pages[sttgs.grp.page].map((group, index) => `${(index+1)+(sttgs.grp.page*25)}. ${group.name}`.limit(40)), 2)
+              NumerotedListToColumns(sttgs.grp.pages[sttgs.grp.page].map((group, index) => `${(index+1)+(sttgs.grp.page*25)}. ${group.name}`.limit(40)), displayOptions.numberOfColumn)
             ],
             (sttgs.slug && !sttgs.character) && [
               "## Veuillez ajouter ou selectionner un personnage",
               "### Une fois sélectionner, pour revenir à cette vue, vous pouvez le déselectionner",
               "Une fois selectionner, appuyez sur `modifier` pour configurer ses arcs narratifs et ses tenues",
               (sttgs.chr.pages.length === 0) ? "- Aucun personnage à afficher." :
-              NumerotedListToColumns(sttgs.chr.pages[sttgs.chr.page].map((character, index) => `${(index+1)+(sttgs.chr.page*25)}. ${character.name}`.limit(40)), 2)
+              NumerotedListToColumns(sttgs.chr.pages[sttgs.chr.page].map((character, index) => `${(index+1)+(sttgs.chr.page*25)}. ${character.name}`.limit(40)), displayOptions.numberOfColumn)
             ],
             sttgs.character && [
               `## ${sttgs.character.name}`,
@@ -511,7 +514,8 @@ export default [
               action: async function({interaction}) {
                 sttgs.slug = interaction.values[0];
                 sttgs.character = null;
-                this.data.characters = await dbManager.SOP.character.getAll(sttgs.slug);
+                const characters = await dbManager.SOP.character.getAll(sttgs.slug);
+                this.data.characters = characters.sort(SortByName);
                 return true;
               },
             }
@@ -647,72 +651,13 @@ export default [
         sttgs.attachments = await Promise.all(sttgs.character.outfits.toSorted(() => Math.random() > 0.5 ? 1 : -1).slice(0,9).map(outfit => GetCachedOutfitAttachmentPreview(outfit)));
       }
     },
-    _embeds: function() {
-      let sttgs = this.data._settings._character._edit;
-
-      
-      const l = (s,l=20) => s.length > Math.max(1, l) ? s.slice(0,Math.max(1,l-1))+"…" : s;
-
-      // Génération du footer
-      let footers = [];
-      let fields = [];
-      
-      if (sttgs.mode == "arcs") {
-        if (!sttgs.arc) {
-          const rows = sttgs.arcs.pages[sttgs.arcs.page]?.map((arc, index) => `${(index+1)+(sttgs.arcs.page*25)}. ${l(arc.name)}`) ?? [];
-          fields.push(
-            { name: "Arcs Narratif", value: rows.slice(0, Math.ceil(rows.length/2)).join('\n') || '\u200b', inline: true },
-            { name: "\u200b", value: rows.slice(Math.ceil(rows.length/2)).join('\n') || '\u200b', inline: true }
-          );
-        }
-        
-        footers.push(
-          "Selection d'un arc",
-          `Vitesse de navigation : ±${[1,5,10][sttgs.arcs.navspeed]} | Page ${sttgs.arcs.page+1}/${sttgs.arcs.pages.length}`,
-        );
-      }
-      if (sttgs.mode == "outfits") {
-        if (!sttgs.outfit) {
-          const rows = sttgs.outfits.pages[sttgs.outfits.page]?.map((outfit, index) => {
-            return `${(index+1)+(sttgs.outfits.page*25)}. ${l(outfit.name)}` + (sttgs.arcs.mapped[outfit.arc] ? ` (${l(sttgs.arcs.mapped[outfit.arc].name)})` : '')
-          }) ?? [];
-
-          fields.push(
-            { name: "Outfits", value: rows.slice(0, Math.ceil(rows.length/2)).join('\n') || '\u200b', inline: true },
-            { name: "\u200b", value: rows.slice(Math.ceil(rows.length/2)).join('\n') || '\u200b', inline: true }
-          );
-        } else {
-          fields.push({
-            name: l(sttgs.outfit.name) + (sttgs.arcs.mapped[sttgs.outfit.arc] ? ` (${l(sttgs.arcs.mapped[sttgs.outfit.arc].name)})` : ''),
-            value: sttgs.outfit.artist.name ? sttgs.outfit.artist.link ? `[${sttgs.outfit.artist.name}](${sttgs.outfit.artist.link})` : sttgs.outfit.artist.name : "\u200b"
-          });
-        }
-
-        footers.push(
-          "Selection d'un outfit",
-          `Vitesse de navigation : ±${[1,5,10][sttgs.outfits.navspeed]} | Page ${sttgs.outfits.page+1}/${sttgs.outfits.pages.length}`,
-        );
-      }
-
-      return [{
-        title: "Gestion du personnage.",
-        description: "Ici tu peux modifier les arcs narratifs, les tenues ect...",
-        image: sttgs.outfit ? {
-          url: `attachment://${sttgs.outfit.filename}`
-        } : null,
-        fields,
-        footer: {
-          text: `${sttgs.character.uid} | ` + (footers.join(' | ') || sttgs.character.name || "Never Gonna Give You Up"),
-        },
-        color: 0x5865F2,
-      }];
-    },
     files: function() {
       let sttgs = this.data._settings._character._edit;
       return sttgs.attachments;
     },
     components: function() {
       let sttgs = this.data._settings._character._edit;
+      const displayOptions = this.data.displayOptions;
 
       let btns = { arcs: "Arcs narratif", outfits: "Tenues", settings: "Paramètres" };
 
@@ -852,11 +797,11 @@ export default [
               min_values: 0, max_values: 1,
               options: sttgs.outfits.pages[sttgs.outfits.page]?.map((outfit, index) => {
                 const arc = sttgs.arcs.mapped[outfit.arc];
-
+                
                 return {
                   label: `${(index + 1) + (sttgs.outfits.page * 25)}. ${outfit.name}` + (arc ? ` (${arc.name})` : ''),
                   value: outfit.id,
-                  default: (outfit.name == sttgs.outfit?.name) && (outfit.arc == sttgs.outfit?.arc),
+                  default: outfit.id === sttgs.outfit?.id,
                 }
               }) ?? [{ label: "Aucun outfit a afficher", value: "none", default: true }],
               disabled: !sttgs.outfits.pages[sttgs.outfits.page],
@@ -873,7 +818,7 @@ export default [
           if (!sttgs.outfit) {
             if (sttgs.outfits.pages.length > 1) COMPS.push([ GetNavBar(sttgs.outfits) ]);
           } else {
-            // arc select (outfit change arc)
+            // arc S(outfit change arc)
             COMPS.push([
               {
                 type: ComponentType.StringSelect,
@@ -904,6 +849,7 @@ export default [
             {
               label: "Ajouter des outfits",
               action: async function({ interaction }) {
+                if (sttgs.pendingImageUploading) return false;
                 interaction.deferUpdate();
                 
                 const filter = (collect) => {
@@ -914,20 +860,24 @@ export default [
                 let instruction = await interaction.channel.send({
                   content: `${interaction.user} Envoyez un message contenant des liens et/ou des images attachées.\nEcrit \`cancel\` pour annuler.\n_Annulation automatique <t:${ Date.timestamp() + 130 }:R>_`
                 });
-                let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).then(c => c).catch(() => null);
+                sttgs.pendingImageUploading = true;
+                let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).then(selfnoop).catch(noop);
                 instruction.delete().catch(noop);
+                sttgs.pendingImageUploading = false;
                 
                 if (collected) {
                   await collected.values().array().map(async (message) => {
                     let toprocess = message;
-                    if (message.reference) {
+                    if (toprocess.reference) {
                       try {
-                        let ref = await message.fetchReference();
+                        let ref = await toprocess.fetchReference();
                         if (ref) toprocess = ref;
                       } catch (err) {
                         console.error(err);
                       }
                     }
+
+                    await toprocess.react(Emotes.loading).catch(noop);
 
                     for (let url of [...ExtractUrlsFromContent(toprocess), ...ExtractUrlsFromAttachments(toprocess)]) {
                       if (!url) continue;
@@ -943,7 +893,7 @@ export default [
                       }
                     }
 
-                    await message.delete().catch(noop);
+                    await toprocess.delete().catch(noop);
                   }).promise();
                 }
 
@@ -1007,6 +957,7 @@ export default [
               label: "Changer d'image",
               disabled: !sttgs.outfit,
               action: async function({ interaction }) {
+                if (sttgs.pendingImageUploading) return false;
                 interaction.deferUpdate();
                 
                 const filter = (collect) => {
@@ -1018,15 +969,18 @@ export default [
                 let instruction = await interaction.channel.send({
                   content: `${interaction.user} Envoyez un message contenant un lien ou une image attachée.\nEcrit \`cancel\` pour annuler.\s_Annulation automatique <t:${ Date.timestamp() + 130 }:R>_`
                 });
-                let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).then(c => c).catch(() => null);
+                sttgs.pendingImageUploading = true;
+                let collected = await interaction.channel.awaitMessages({ filter,  max: 1, idle: 120_000, errors: ['time'] }).then(selfnoop).catch(noop);
                 instruction.delete().catch(noop);
-                
+                sttgs.pendingImageUploading = false;
+
                 if (!collected) return false;
 
                 // Get only the first
                 let toprocess = collected.values().array()[0];
                 if (!toprocess) return false;
-                toprocess.delete().catch(noop);
+                
+                await toprocess.react(Emotes.loading).catch(noop);
 
                 // Fetch teh reference if transfered
                 if (toprocess.reference) {
@@ -1041,17 +995,19 @@ export default [
                 // Get all links and get only one
                 let links = [...ExtractUrlsFromContent(toprocess), ...ExtractUrlsFromAttachments(toprocess)];
                 let url = links[0];
-                
+
                 if (!url) return false;
 
                 // taunt if multiple links
                 if (links.length > 1) {
-                  interaction.channel.send(`${interaction.user} J'avais dis une image ${Emotes.catrage}`).then(m => Wait(5_000).then(() => m.delete()));
+                  interaction.channel.send(`${interaction.user} J'avais dis une image... ${Emotes.catrage}\nSeule la première sera prise en compte du coup 🖕`).then(m => deleteAfter(m, 5_000));
                 }
-                
+
                 // Download Image & Update outfit 
                 let name = `${sttgs.character.uid}_${MD5(url)}`;
                 let filename = await SaveUrlToLocal(url, './assets/sop/outfits/', name);
+
+                toprocess.delete().catch(noop);
 
                 sttgs.outfit.filename = filename;
                 
@@ -1142,11 +1098,39 @@ export default [
               },
             },
             {
-              label: sttgs.character.rules.can_be_pass ? "Rendre Non Passable" : "Rendre Passable",
+              label: sttgs.character.rules.can_be_pass ? "Est Passable" : "N'est pas Passable",
               style: sttgs.character.rules.can_be_pass ? ButtonStyle.Success : ButtonStyle.Danger,
               disabled: this.data.userPermission < PERMISSION.ADMIN,
               action: async function() {
                 let updated = await dbManager.SOP.character.setPassable(sttgs.character.uid, !sttgs.character.rules.can_be_pass);
+                if (!updated) return false;
+
+                UpdateCharacter(updated);
+
+                return true;
+              },
+            },
+          ]);
+          COMPS.push([
+            {
+              label: sttgs.character.rules.can_be_smash ? "Est Super Smashable" : "N'est pas Smashable",
+              style: sttgs.character.rules.can_be_smash ? ButtonStyle.Success : ButtonStyle.Danger,
+              disabled: this.data.userPermission < PERMISSION.ADMIN,
+              action: async function() {
+                let updated = await dbManager.SOP.character.setSuperSmashable(sttgs.character.uid, !sttgs.character.rules.can_be_smash);
+                if (!updated) return false;
+
+                UpdateCharacter(updated);
+
+                return true;
+              },
+            },
+            {
+              label: sttgs.character.rules.can_be_pass ? "Est Super Passable" : "N'est pas Super Passable",
+              style: sttgs.character.rules.can_be_pass ? ButtonStyle.Success : ButtonStyle.Danger,
+              disabled: this.data.userPermission < PERMISSION.ADMIN,
+              action: async function() {
+                let updated = await dbManager.SOP.character.setSuperPassable(sttgs.character.uid, !sttgs.character.rules.can_be_pass);
                 if (!updated) return false;
 
                 UpdateCharacter(updated);
@@ -1187,7 +1171,7 @@ export default [
               `${sttgs.character.name} possède actuellement ${sttgs.character.arcs.length} arcs narratif(s)`,
               "",
               (!sttgs.arc && ValidateArray(sttgs.arcs.pages[sttgs.arcs.page], []).length > 0) && [
-                NumerotedListToColumns(sttgs.arcs.pages[sttgs.arcs.page]?.map((arc, index) => `${(index+1)+(sttgs.arcs.page*25)}. ${arc.name}`.limit(30)), 2),
+                NumerotedListToColumns(sttgs.arcs.pages[sttgs.arcs.page]?.map((arc, index) => `${(index+1)+(sttgs.arcs.page*25)}. ${arc.name}`.limit(30)), displayOptions.numberOfColumn),
               ],
               sttgs.arcs.pages.length > 1 ? `-# Vitesse de navigation : ±${[1,5,10][sttgs.arcs.navspeed]} | Page ${sttgs.arcs.page+1}/${sttgs.arcs.pages.length}` : "",
             ].flat(),
@@ -1208,13 +1192,13 @@ export default [
               sttgs.outfit && [
                 `## ${sttgs.outfit.name}`,
                 sttgs.outfit.arc && `### Arc: ${sttgs.arcs.mapped[sttgs.outfit.arc]?.name || 'Arc inconnu'}`,
-                sttgs.outfit.artist && "Visuel créer par " + (sttgs.outfit.artist.link ? `[${sttgs.outfit.artist.name}](${sttgs.outfit.artist.link})` : sttgs.outfit.artist),
+                sttgs.outfit.artist.name && "Visuel créer par " + (sttgs.outfit.artist.link ? `[${sttgs.outfit.artist.name}](${sttgs.outfit.artist.link})` : sttgs.outfit.artist.name),
                 "",
               ],
               (!sttgs.outfit && ValidateArray(sttgs.outfits.pages[sttgs.outfits.page], []).length > 0) && [
                 NumerotedListToColumns(sttgs.outfits.pages[sttgs.outfits.page]?.map((outfit, index) => {
                   return `${(index+1)+(sttgs.outfits.page*25)}. ${outfit.name}`.limit(30);
-                }), 2),
+                }), displayOptions.numberOfColumn),
               ],
             ].flat(),
 

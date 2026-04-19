@@ -9,7 +9,7 @@ import { GetRandomFunnyErrorMessage } from "./FunnyErrorMessages.js";
 import {
 	ComponentType, ButtonStyle, TextInputStyle,
 	ChannelType, PermissionFlagsBits,
-  Message, CommandInteraction, GuildMember,
+  Message, BaseInteraction, GuildMember,
 	Collection,
 	MessageFlags,
 	SeparatorSpacingSize,
@@ -271,10 +271,15 @@ export class DiscordMenu {
         ...page
     })) : [];
     this.#_mapPages();
-
-    this.sendOption = { ephemeral: ValidateBoolean(options.ephemeral, null) };
-    this.ephemeral = ValidateBoolean(options.ephemeral, null);
-    this.deleteOnClose = ValidateBoolean(options.deleteOnClose, true);
+		
+		this.ephemeral = ValidateBoolean(options.ephemeral, false);
+		this.useComponentsV2 = ValidateBoolean(options.v2, false);
+		
+		this.flags = [];
+		if (this.ephemeral) this.flags.push(MessageFlags.Ephemeral);
+		if (this.useComponentsV2) this.flags.push(MessageFlags.IsComponentsV2);
+    
+		this.deleteOnClose = ValidateBoolean(options.deleteOnClose, true);
     this.element = options.element;
     this.message = null;
 
@@ -321,7 +326,7 @@ export class DiscordMenu {
 
     /* CHECKING */
     if (this.pages.length === 0) throw new BotRangeError("MinSize", 'page', 1);
-    if (!this.element) throw new BotTypeError("WrongType", 'element', ["Message", "CommandInteraction"]);
+    if (!this.element) throw new BotTypeError("WrongType", 'element', ["Message", "BaseInteraction"]);
   }
 
 	#CollectorFilter(OPT) {
@@ -376,55 +381,8 @@ export class DiscordMenu {
 	get page() { // Return Current Page
 		return this.pages[this.pageIndex] ?? this.pages[0];
 	}
-
-	async #processComponents_v1(array) {
-		this.actions = {};
-
-		const NonEmpty = (e) => isArray(e) ? e.length > 0 : e;
-
-		const processComponent = ( data ) => { // Component processor.
-			let uid = this.sid.random();
-			this.actions[uid] = data.action ?? null;
-
-			if (typeof data.disabled === 'function') {
-				data.disabled = data.disabled.call(this, { pages: this.pages, page: this.page, index: this.pageIndex }) ?? false;
-			}
-
-			return Object.assign(Object.assign({ type: ComponentType.Button, style: ButtonStyle.Secondary }, { ...data }), { customId: this.uid +':'+ uid });
-		}
-
-		const processComponents = async ( element ) => { // Main brain for processing each element.
-			if (typeof element === 'function') {
-				element = await element.call(this, { pages: this.pages, page: this.page, index: this.pageIndex });
-			}
-
-			if (Array.isArray(element)) { // Array² of components
-				if (element.some(Array.isArray)) {
-					return await Promise.all(element.filter(NonEmpty).flatMap(async ( element ) => {
-						return await processComponents(element);
-					}));
-				} else { // Array of components
-					return { // Return an action row with processed components.
-						type: ComponentType.ActionRow,
-						components: element.filter(NonEmpty).flatMap(e => processComponent(e)),
-					}
-				}
-			}
-
-			if (element.type === ComponentType.ActionRow ) { // Is an ActionRow component
-				return Object.assign({...element}, { components: element?.components.filter(NonEmpty).map(processComponent) });
-			}
-
-			return element;
-		}
-
-		let elements = typeof array == 'function' ? await array.call(this, { pages: this.pages, page: this.page, index: this.pageIndex }) : array;
-		if (!elements) return [];
-
-		let components = await Promise.all(elements?.filter(NonEmpty).map(processComponents));
-		return components.flat();
-	}
-	async #processComponents(array) {
+	
+	async processComponents(array) {
 		this.actions = {};
 		const NonEmpty = (e) => isArray(e) ? e.length > 0 : e;
 
@@ -643,7 +601,7 @@ export class DiscordMenu {
 				}]
 			};
 
-			if (this.element instanceof CommandInteraction) {
+			if (this.element instanceof BaseInteraction) {
 				if (this.element.deferred || this.element.replied) {
 					await this.element.followUp(payload).catch(noop);
 				} else {
@@ -676,40 +634,21 @@ export class DiscordMenu {
 	}
 
 	async _prepareMessageComponents() {
-		return await this.#processComponents(this.page?.components) ?? [];
+		return await this.processComponents(this.page?.components) ?? [];
 	}
 
 	async prepareMessage(O) {
 		const [components, content, embeds, files] = await Promise.all([
-			this._prepareMessageComponents(O),
+			this._prepareMessageComponents(),
 			this._prepareMessageContent(O),
 			this._prepareMessageEmbeds(O),
 			this._prepareMessageFiles(O)
 		]);
 
-		const flags = [];
-
-		const hasV2 = components.some(c => 
-			[ComponentType.Container, ComponentType.TextDisplay, ComponentType.MediaGallery].includes(c.type)
-		);
-
-		if (hasV2) flags.push(MessageFlags.IsComponentsV2);
-		if (this.ephemeral) flags.push(MessageFlags.Ephemeral);
-
-
-		return hasV2 ? { components, files, flags } : { content, components, embeds, files, flags };
+		const flags = this.flags;
+		return this.useComponentsV2 ? { components, files, flags } : { content, components, embeds, files, flags };
 	}
 
-	async _runHook_old(parent, hookName, args = {}) {
-		let hook = parent[hookName];
-		if (typeof hook === 'function') {
-			try {
-				await hook.call(this, args);
-			} catch (err) {
-				await this.handleError(err);
-			}
-		}
-	}
 	async runHook(context, hookName, args = {}) {
 		let hook = context[hookName];
 
@@ -743,10 +682,21 @@ export class DiscordMenu {
 
 		// Exécution de l'ordre 66
 		if (isInitial) { // 1st Send
-			if (this.element.replied || this.element.deferred) {
-				this.message = await this.element.editReply(payload);
+			if (this.element instanceof BaseInteraction) {
+				// On envoie la réponse
+				if (this.element.replied || this.element.deferred) {
+					await this.element.editReply(payload);
+				} else {
+					await this.element.reply(payload);
+				}
+				
+				this.message = await this.element.fetchReply();
+			}
+			else if (this.element instanceof Message) {
+				// Envoi classique via Message/Channel
+				this.message = await this.element.channel.send(payload);
 			} else {
-				this.message = await this.element.reply(payload);
+				throw new TypeError("this.element must be instance of BaseInteraction or Message.");
 			}
 			this.sent = true;
 		} else { // Updating
@@ -887,7 +837,7 @@ export class DiscordMenu {
 							this.message.delete();
 						}
 
-						if (this.element instanceof CommandInteraction) {
+						if (this.element instanceof BaseInteraction) {
 							if (!this.element.deferred) {
 								this.element.deleteReply();
 							}

@@ -1,10 +1,11 @@
-import { ButtonStyle, ComponentType, SeparatorSpacingSize } from "discord.js"
-import { Locales } from "#modules/Locales"
+import { ButtonStyle, ComponentType } from "discord.js"
 
 export default [
   {
     name: "home",
     components: function() {
+      const displayOptions = this.data.displayOptions;
+
       return [
         {
           type: ComponentType.Container,
@@ -13,11 +14,11 @@ export default [
             {
               type: ComponentType.TextDisplay,
               content: [
-                "# 🥵  𝗦 𝗠 𝗔 𝗦 𝗛  𝗢 𝗥  𝗣 𝗔 𝗦 𝗦  🥶",
+                "# 🥵 SMASH OR PASS 🥶",
                 "Dans ce jeu interactif hilarant, il ne s'agit pas de combat, mais de décisions!",
                 `Affrontez un défilé de personnages hauts en couleur, chacun avec ses traits distinctifs, et répondez à la question fatidique : Smash or Pass ?.`,
                 "## Personnages",
-                `Il existe ${this.data.characters.length} personnages !`
+                `Il existe ${this.data.totalCharactersCount} personnages !`
               ]
             },
             '.=======',
@@ -31,7 +32,6 @@ export default [
               {
                 emoji: "🏛️",
                 label: "Museum",
-                disabled: true,
                 style: ButtonStyle.Primary,
                 action: "goto:museum-select"
               },
@@ -44,16 +44,25 @@ export default [
               },
             ],
             [
-              { emoji: "⚙️", label: "Paramètres", action: "goto:settings", style: ButtonStyle.Secondary },
-              { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
+              { emoji: "⚙️", label: "Gestion personnages", action: "goto:settings", style: ButtonStyle.Secondary },
               {
-                emoji: "🐸",
-                label: "CRASH",
-                style: ButtonStyle.Danger,
-                action: async function() {
-                  throw new Error("This is an error lol.");
-                }
+                label: "📱",
+                style: displayOptions.phone ? ButtonStyle.Success : ButtonStyle.Secondary,
+                action: function() {
+                  displayOptions.phone = !displayOptions.phone;
+
+                  if (displayOptions.phone) {
+                    displayOptions.numberOfColumn = 1; 
+                  } else {
+                    displayOptions.numberOfColumn = 2; 
+                  }
+
+                  return true;
+                },
               },
+            ],
+            [
+              { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
             ]
           ]
         }

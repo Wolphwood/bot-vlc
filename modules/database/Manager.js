@@ -218,14 +218,52 @@ export class Manager {
 						$addFields: {
 							ratio: {
 								$cond: [
-									{ $eq: [{ $add: [{ $ifNull: ["$stats.smashed", 0] }, { $ifNull: ["$stats.passed", 0] }] }, 0] },
-									0,
+									// 1. Calcul du volume total pondéré pour vérifier s'il est égal à 0
 									{
-										$divide: [
-											{ $subtract: [{ $ifNull: ["$stats.smashed", 0] }, { $ifNull: ["$stats.passed", 0] }] },
-											{ $add: [{ $ifNull: ["$stats.smashed", 0] }, { $ifNull: ["$stats.passed", 0] }] }
+										$eq: [
+											{
+												$add: [
+													{ $ifNull: ["$stats.smashed", 0] },
+													{ $multiply: [{ $ifNull: ["$stats.super_smashed", 0] }, 2] },
+													{ $ifNull: ["$stats.passed", 0] },
+													{ $multiply: [{ $ifNull: ["$stats.super_passed", 0] }, 2] }
+												]
+											},
+											0
 										]
 									},
+									0, // Si total = 0, ratio = 0
+									// 2. Calcul du ratio pondéré
+									{
+										$divide: [
+											// NUMÉRATEUR : (S + SS*3) - (P + SP*3)
+											{
+												$subtract: [
+													{
+														$add: [
+															{ $ifNull: ["$stats.smashed", 0] },
+															{ $multiply: [{ $ifNull: ["$stats.super_smashed", 0] }, 2] }
+														]
+													},
+													{
+														$add: [
+															{ $ifNull: ["$stats.passed", 0] },
+															{ $multiply: [{ $ifNull: ["$stats.super_passed", 0] }, 2] }
+														]
+													}
+												]
+											},
+											// DÉNOMINATEUR : (S + SS*3) + (P + SP*3)
+											{
+												$add: [
+													{ $ifNull: ["$stats.smashed", 0] },
+													{ $multiply: [{ $ifNull: ["$stats.super_smashed", 0] }, 2] },
+													{ $ifNull: ["$stats.passed", 0] },
+													{ $multiply: [{ $ifNull: ["$stats.super_passed", 0] }, 2] }
+												]
+											}
+										]
+									}
 								]
 							}
 						}
@@ -242,8 +280,8 @@ export class Manager {
 				const sorts = {
 					alphabet: { name: 1 },
 					anti_alphabet: { name: -1 },
-					ratio: { ratio: 1 },
-					anti_ratio: { ratio: -1 },
+					ratio: { ratio: -1 },
+					anti_ratio: { ratio: 1 },
 				}
 
 				return Models.ModelSopCharacter.aggregate([
@@ -413,22 +451,25 @@ export class Manager {
 			count: (filter) => {
 				return Models.ModelSopCharacter.countDocuments(filter);
 			},
-			setSmashable: async (uid, value) => {
-				const updated = await Models.ModelSopCharacter.findOneAndUpdate(
-					{ uid },
-					{ $set: { "rules.can_be_smash": !!value } },
-					{ returnDocument: 'after' }
-				).lean();
-
-				return updated;
+			setSmashable: (uid, value) => {
+				return this.SOP.character.setBooleanRule(uid, 'can_be_smash', value);
 			},
-			setPassable: async (uid, value) => {
+			setPassable: (uid, value) => {
+				return this.SOP.character.setBooleanRule(uid, 'can_be_pass', value);
+			},
+			setSuperSmashable: (uid, value) => {
+				return this.SOP.character.setBooleanRule(uid, 'can_be_super_smash', value);
+			},
+			setSuperPassable: (uid, value) => {
+				return this.SOP.character.setBooleanRule(uid, 'can_be_super_pass', value);
+			},
+			setBooleanRule: async (uid, rulename, value) => {				
 				const updated = await Models.ModelSopCharacter.findOneAndUpdate(
 					{ uid },
-					{ $set: { "rules.can_be_pass": !!value } },
+					{ $set: { [`rules.${rulename}`]: !!value } },
 					{ returnDocument: 'after' }
 				).lean();
-
+				
 				return updated;
 			},
 
@@ -440,6 +481,16 @@ export class Manager {
 			pass: async (uid, count = 1) => {
 				return Models.ModelSopCharacter.updateOne({ uid }, {
 					$inc: { [`stats.passed`]: count }
+				})
+			},
+			super_smash: async (uid, count = 1) => {
+				return Models.ModelSopCharacter.updateOne({ uid }, {
+					$inc: { [`stats.super_smashed`]: count }
+				})
+			},
+			super_pass: async (uid, count = 1) => {
+				return Models.ModelSopCharacter.updateOne({ uid }, {
+					$inc: { [`stats.super_passed`]: count }
 				})
 			},
 		},
@@ -588,48 +639,3 @@ export class Manager {
 }
 
 export const dbManager = new Manager();
-
-
-
-
-const migrateOutfitsWithPrefix = async () => {
-  console.log("🚀 Migration des UIDs avec préfixe personnage...");
-  
-  const cursor = Models.ModelSopCharacter.find({}).cursor();
-  let modifiedCount = 0;
-
-  for (let doc = await cursor.next(); doc != null; doc = await cursor.next()) {
-    let hasChanged = false;
-    const charUid = doc.uid; // L'UID du personnage (ex: 'na')
-    const existingUids = new Set(doc.outfits.map(o => o.uid).filter(Boolean));
-
-    doc.outfits.forEach((outfit) => {
-      // On vérifie si l'UID existe ET s'il commence bien par le préfixe
-      if (!outfit.id || !outfit.id.startsWith(`${charUid}_`)) {
-        let newUid;
-        let attempts = 0;
-        
-        do {
-          // Format: perso_aléatoire (ex: na_4f2g7h)
-          newUid = `${charUid}_${Math.random().toString(36).substring(2, 8)}`;
-          attempts++;
-          if (attempts > 10) newUid += Date.now().toString(36).slice(-2);
-        } while (existingUids.has(newUid));
-
-        outfit.id = newUid;
-        existingUids.add(newUid);
-        hasChanged = true;
-      }
-    });
-
-    if (hasChanged) {
-      doc.markModified('outfits');
-      await doc.save();
-      modifiedCount++;
-    }
-  }
-
-  console.log(`✅ Migration terminée. ${modifiedCount} personnages harmonisés.`);
-};
-
-migrateOutfitsWithPrefix();

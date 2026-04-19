@@ -1,12 +1,13 @@
 import { AttachmentBuilder, Events, MessageFlags } from 'discord.js';
 import { Registry } from '#modules/Registry';
 import { dbManager } from '#modules/database/Manager';
-import { noop, IsMessageAuthorAdmin, isDefined, isObject, MD5 } from '#modules/Utils';
+import { noop, IsMessageAuthorAdmin, isDefined, isObject, MD5, generateEasyPassword, ModalForm } from '#modules/Utils';
 import util from "util"
 import Locale from '#modules/Locales';
 import { PERMISSION } from '#constants';
 import path from 'path';
 import fs from 'fs';
+import { GameSmashOrPassFinalViewer } from '#modules/menus/sop/index';
 
 Registry.register({
   name: "Event: InteractionCreate (Buttons)",
@@ -39,7 +40,7 @@ export default {
   name: Events.InteractionCreate,
   run: async ({ client, parameters: [interaction] }) => {
     if (!interaction.isButton()) return;
-    if (!/(GETLOG|GETFILE|DELETE):[a-z-0-9]+(:[a-z-0-9]+)*/gmi.test(interaction.customId)) return;
+    if (!/(GETLOG|GETFILE|DELETE|MENU-SOP-FINAL):[a-z-0-9]+(:[a-z-0-9]+)*/gmi.test(interaction.customId)) return;
 
     let userPermission = PERMISSION.USER;
     if (interaction.channel.type !== 'DM' && IsMessageAuthorAdmin(interaction, false)) userPermission = PERMISSION.GUILD_ADMIN;
@@ -114,7 +115,22 @@ export default {
           break;
         }
         case "DELETE": {
+          const password = Array.from(Array(3), () => generateEasyPassword(2)).map(s => s.ucFirst()).join('');
+
+          let modal = new ModalForm({ title: `Veuillez confirmez en tapant le mot de passe`, time: 60_000 })
+            .addRow().addTextField({ name: 'password', label: `Veuillez taper ${password} pour confirmer`, placeholder: password })
+          ;
+          
+          let result = await modal.setInteraction(interaction).popup();
+          if (!result || !result.get('password')) return;
+          if (result.get('password') !== password) return;
+
           interaction.message?.delete().catch(noop);
+          break;
+        }
+        case "MENU-SOP-FINAL": {
+          // interaction.message?.delete().catch(noop);
+          GameSmashOrPassFinalViewer({ client, interaction });
           break;
         }
       }

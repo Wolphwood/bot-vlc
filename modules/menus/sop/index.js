@@ -1,54 +1,114 @@
-import { ApplicationCommandType, ApplicationCommandOptionType, ComponentType, ButtonStyle, AttachmentBuilder, Message } from "discord.js";
+import { MessageFlags, ComponentType, ButtonStyle, AttachmentBuilder } from "discord.js";
 
 import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
-import { noop, DiscordMenu, ModalForm } from "#modules/Utils";
+import { noop, DiscordMenu, ModalForm, isDefined, isNull, isString, ValidateArray } from "#modules/Utils";
 import { Locales } from "#modules/Locales"
 import Emotes from "#modules/Emotes"
 import { dbManager } from "#modules/database/Manager"
 
 // Trier les personnages par nom
 export function SortByName(a,b) {
-  const kA = `${a.name} ${a.arc}`.simplify().toLowerCase();
-  const kB = `${b.name} ${b.arc}`.simplify().toLowerCase();
-  
-  if (kA < kB) return -1;
-  if (kA > kB) return 1;
-  return 0;
+  const kA = (a.name ?? a.character?.name ?? '').simplify().toLowerCase();
+  const kB = (b.name ?? b.character?.name ?? '').simplify().toLowerCase();
+  return kA < kB ? -1 : kA > kB ? 1 : 0;
+}
+export function SortByReversedName(a,b) {
+  const kA = (a.name ?? a.character?.name ?? '').simplify().toLowerCase();
+  const kB = (b.name ?? b.character?.name ?? '').simplify().toLowerCase();
+  return kA < kB ? 1 : kA > kB ? -1 : 0;
 }
 
 // Trier les personnages par Ratio
 export function SortByRatio(a,b) {
-  let rA = softFixed((a.stats.smashed - a.stats.passed) / (a.stats.smashed + a.stats.passed));
-  let rB = softFixed((b.stats.smashed - b.stats.passed) / (b.stats.smashed + b.stats.passed));
+  return a.ratio > b.ratio ? -1 : a.ratio < b.ratio ? 1 : 0;
+}
+export function SortByReversedRatio(a,b) {
+  return a.ratio > b.ratio ? 1 : a.ratio < b.ratio ? -1 : 0;
+}
 
-  if (rA > rB) return -1;
-  if (rA < rB) return 1;
-  return 0;
+export function GetMemoryDumpButton() {
+  return {
+    emoji: '👾',
+    label: "MEMORY DUMP",
+    style: ButtonStyle.Secondary,
+    action: async function() {
+      const folder = './logs/dumps/DiscordMenu';
+      let filename = null;
+      let counter = 0;
+      
+      if (!fs.existsSync(folder)) fs.mkdirSync(folder, { recursive: true });
+      
+      do {
+        filename = counter > 0 ? `menu_${this.uid}-${counter}.json` : `menu_${this.uid}.json`;
+      } while (fs.existsSync(path.join(folder, filename)));
+      
+      fs.appendFileSync(path.join(folder, filename), JSON.stringify(this.data, null, 2));
+      
+      const logcontext = dbManager.log.getContextFromElement("DiscordMenu", this.element, this);
+      const uid = await dbManager.log.save({ ...logcontext, folder, filename});
+      
+      this.element.channel.send({
+        flags: [ MessageFlags.IsComponentsV2 ],
+        components: [{
+          type: ComponentType.Container,
+          accent_color: this.data.color.values().getRandomElement(),
+          components: [
+            {
+              type: ComponentType.TextDisplay,
+              content: [
+                "**Full MEMORY DUMP**",
+                `Filename: \`${filename}\``,
+              ].join('\n')
+            },
+            {
+              type: ComponentType.ActionRow,
+              components: [
+                {
+                  type: ComponentType.Button,
+                  label: "Get Memory Dump (DATA)",
+                  style: ButtonStyle.Secondary,
+                  customId: `GETLOG:DEV:${uid}`
+                },
+                {
+                  type: ComponentType.Button,
+                  label: "Get Memory Dump (FILE)",
+                  style: ButtonStyle.Secondary,
+                  customId: `GETFILE:DEV:${uid}`
+                }
+              ]
+            }
+          ]
+        }]
+      });
+
+      return true;
+    }
+  };
 }
 
 import PageHome from "./pages/home.js"
 import PageSettings from "./pages/settings.js"
 import PageTops from "./pages/tops.js"
 import PagePlay from "./pages/play.js"
+import PageMuseum from "./pages/museum.js"
 
 import { SOP_PERMISSION } from "#constants";
+import { gunzipSync } from "zlib";
 
 export async function GameSmashOrPass({ client, discordElement, GuildData, UserData, userPermission }) {
   let loadingEmoteMessage = await discordElement.channel.send(Emotes.loading);
-  let AllCharacters = await dbManager.SOP.character.getAll();
+  let countall = await dbManager.SOP.character.count();
   let AllGroups = await dbManager.SOP.group.getWithAuth(null, discordElement.member, userPermission);
   loadingEmoteMessage.delete().catch(noop);
 
-
-
   const MenuGameSmashOrPass = new DiscordMenu({
   element: discordElement,
-  ephemeral: true,
+  ephemeral: true, v2: true,
   collectorOptions: {
-    idle: 2_147_483_647
+    idle: 600_000 // 10 minutes
   },
   data: {
     color: {
@@ -60,11 +120,16 @@ export async function GameSmashOrPass({ client, discordElement, GuildData, UserD
       coral: 0xF26558,
       lime: 0x65F258,
     },
+    displayOptions: {
+      phone: false,
+      numberOfColumn: 2,
+    },
     guild: GuildData,
     user: UserData,
     userPermission: userPermission ?? 0,
-    characters: AllCharacters.sort(SortByName),
-    groups: AllGroups.filter(g => g.can(SOP_PERMISSION.READ)),
+    totalCharactersCount: countall ?? 0,
+    characters: [],
+    groups: AllGroups.filter(g => g.can(SOP_PERMISSION.READ)).sort(SortByName),
     gamemode: 'random',
     count: 0,
     ccount: false,
@@ -77,700 +142,272 @@ export async function GameSmashOrPass({ client, discordElement, GuildData, UserD
     ...PageSettings,
     ...PageTops,
     ...PagePlay,
-  ],
-  __pages: [
-    
-
-    {
-    name: "museum-select",
-    beforeUpdate: function() {
-      let { selectpage } = this.data._museum ?? {};
-
-      this.data._museum.selectpage = selectpage ?? 0;
-    },
-    embeds: function() {
-      let CharactersPages = this.data.characters.chunkOf(25);
-  
-      return [{
-        title: "Liste des personnages",
-        fields: [{
-          name: FillString('Personnages'),
-          value: CharactersPages[this.data._museum.selectpage].map((c,i) => `${(i + 1) + (this.data._museum.selectpage * 25)}. ${c.name} _(${c.arc})_`).join('\n'),
-        }],
-        color: 0x5865F2,
-      }];
-    },
-    components: function() {
-      let CharactersPages = this.data.characters.chunkOf(25);
-      let hasMultiplePages = CharactersPages.length > 1;
-
-      return [
-      [
-        {
-          type: ComponentType.StringSelect,
-          placeholder: Locales.get("command.sop.museum_select.select.placeholder"),
-          options: CharactersPages[this.data._museum.selectpage].map((character, index) => ({
-            label: `[${(index + 1) + (this.data._museum.selectpage * 25)}] ${character.name} (${character.arc})`,
-            value: character.uid,
-            // default: this.data._museum.index !== null ? ( this.data.characters[this.data._museum.index]?.uid == character.uid ) : false
-          })),
-          action: function({ interaction }) {
-            this.data._museum.index = this.data.characters.findIndex(char => char.uid == interaction.values[0]);
-            this.data._museum.outfitindex = 0;
-            this.goto('museum');
-            return true;
-          },
-        }
-      ],
-      [
-        {
-          emoji: Emotes.GetEmojiObject(Emotes.chevron.black.left.simple),
-          label: "\u200b",
-          action: function() {
-            this.data._museum.selectpage = Math.clamp((this.data._museum.selectpage || 0) - 1, 0, CharactersPages.length - 1);
-            return true;
-          },
-          disabled: !hasMultiplePages || this.data._museum.selectpage < 1
-        },
-        {
-          label: `${this.data._museum.selectpage + 1}/${CharactersPages.length}`,
-          action: async function({ interaction }) {
-            let modal = new ModalForm({ title: "Aller à la page", time: 120_000 })
-            .addRow().addTextField({ name: 'number', label: "Numéro de la page", placeholder: (this.data._museum.selectpage ?? 0) + 1 })
-            ;
-            
-            let result = await modal.setInteraction(interaction).popup();
-            if (!result || isNaN(result.get('number'))) return false;
-    
-            this.data._museum.selectpage = Math.clamp((this.data._museum.selectpage || 0) + 1, 0, CharactersPages.length - 1);
-    
-            return true;
-          },
-          style: ButtonStyle.Secondary,
-          disabled: !hasMultiplePages
-        },
-        {
-          emoji: Emotes.GetEmojiObject(Emotes.chevron.black.right.simple),
-          label: "\u200b",
-          action: function() {
-            this.data._museum.selectpage = Math.clamp((this.data._museum.selectpage || 0) + 1, 0, CharactersPages.length - 1);
-            return true;
-          },
-          disabled: !hasMultiplePages || this.data._museum.selectpage >= (CharactersPages.length - 1) 
-        },
-      ],
-      ['name', 'popular', 'unpopular'].map(m => ({
-        label: Locales.get(`command.sop.museum.sorting.button.${m}.label`),
-        action: function() {
-        this.data._museum.sorting = m;
-        
-        if (m === 'name') {
-          this.data.characters = this.data.characters.sort(SortByName);
-        } else
-        if (m === 'popular') {
-          this.data.characters = this.data.characters.sort(SortByName).sort(SortByRatio);
-        } else
-        if (m === 'unpopular') {
-          this.data.characters = this.data.characters.sort(SortByName).sort(SortByRatio).reverse();
-        }
-        
-        return true;
-        },
-        style: this.data._museum.sorting === m ? ButtonStyle.Primary : ButtonStyle.Secondary
-      })),
-      [
-        { emoji: '🏠', label: "Home", action: "goto:home", style: ButtonStyle.Secondary },
-      ]
-      ]
-    }
-    },
-    {
-    name: "museum",
-    beforeUpdate: function() {
-      let character = this.data.characters[this.data._museum.index];
-      
-      if (!this.data._museum.epicCommentCache) {
-      this.data._museum.epicCommentCache = new Map();
-      }
-
-      this.data._museum.index = Math.clamp(
-      this.data._museum.index || 0,
-      0, this.data.characters.length - 1
-      );
-
-      this.data._museum.outfitindex = Math.clamp(
-      this.data._museum.outfitindex || 0,
-      0, character.outfits.length - 1
-      );
-
-      let outfit = character.outfits[this.data._museum.outfitindex] ?? { name: "_(No image available)_", url: NoOutfitDefaultImage };
-  
-      this.data._museum.character = character;
-      this.data._museum.outfit = outfit;
-  
-      this.data._museum.attachment = GetAttachment(outfit);
-    },
-    embeds: function() {
-      let { character, outfit, attachment } = this.data._museum;
-      let { smashed, passed } = character.stats;
-
-      if (isNaN(smashed)) smashed = 0;
-      if (isNaN(passed)) passed = 0;
-
-      let ratio = softFixed((smashed - passed) / (smashed + passed));
-      let smashed_percent = softFixed((smashed * 100) / (smashed + passed));
-      let passed_percent = softFixed((passed * 100) / (smashed + passed));
-  
-      let columns = 1;
-      let cols = [];
-      let formated = character.outfits.map((o,i) => `${i+1}. ${i == this.data._museum.outfitindex ? Emotes.chevron.white.right.simple : Emotes.empty} ${o.name ?? '_Unknown Outfit Name_'}`);
-      do {
-      cols = formated.divide(++columns);
-      } while (cols.some(c => c.join('\n').length > 1024));
-
-      let comment = "Pas grand chose à dire...";
-
-      if (smashed == 0) comment = `${character.name} n’a encore fait succomber personne à ses charmes... 😔`;
-      if (passed >= smashed * 2) comment = `On dirait que ${character.name} est plus controversé(e) qu’une pizza à l’ananas 🍍`;
-      if (passed >= smashed * 3) comment = `Wow... même un cactus est plus abordable que ${character.name} 🌵`;
-      if (passed >= smashed * 4) comment = `${character.name} s’est fait ghoster plus souvent qu’un vieux compte Tinder 👻`;
-      if (passed >= smashed * 5) comment = `La Friendzone a clairement adopté ${character.name} 🛑💔`;
-
-      if (smashed == passed) comment = `${character.name} est un mystère ambulant... il/elle partage le monde en deux 🤔`;
-
-      if (passed == 0) comment = `${character.name} est l'incarnation du désir, personne ne lui résiste 💘`;
-      if (smashed >= passed * 2) comment = `${character.name} pourrait écrire un livre : "Comment séduire en 10 leçons" 📚`;
-      if (smashed >= passed * 3) comment = `${character.name} est tellement irrésistible que les Cupidons font des heures sup’ 💘`;
-      if (smashed >= passed * 4) comment = `La légende raconte que même les statues smashent ${character.name} 🗿❤️`;
-      if (smashed >= passed * 5) comment = `${character.name} est une tornade de séduction, rien ne lui résiste 🌪️🔥`;
-
-      if (smashed == 0 && passed == 0) comment = `${character.name} ? PTDR C KI ?`;
-      
-      if (ratio === 1) {
-      let comments = [
-        `Le cœur de ${character.name} est un royaume où personne n'ose entrer… à moins d'être prêt pour l'amour éternel 💍🔥.`,
-        `Tous les dieux de l'Olympe se sont mis à genoux devant ${character.name}. Même Aphrodite est jalouse 😱💘.`,
-        "Si l'amour était une arme de destruction massive, ${character.name} serait une bombe nucléaire prête à exploser 💣🔥.",
-        `${character.name} est tellement irrésistible que même la gravité tombe sous son charme... tout le monde tombe à ses pieds 🌍💥.`,
-        `Les anges eux-mêmes se battent pour avoir une chance avec ${character.name}... et ils ne sont même pas dignes 😇💖.`,
-        `Même l'univers entier a dû faire une pause pour admirer la beauté de ${character.name} ✨🌌.`
-      ];
-
-      if (!this.data._museum.epicCommentCache.has(character.uid)) {
-        comment = comments.getRandomElement();
-        this.data._museum.epicCommentCache.set(character.uid, comment);
-      } else {
-        comment = this.data._museum.epicCommentCache.get(character.uid);
-      }
-      }
-
-      if (ratio === -1) {
-      let comments = [
-        `Quand ${character.name} entre dans la pièce, même les murs prennent leurs distances 🧱❌.`,
-        `Si ${character.name} était une œuvre d'art, ce serait un tableau dans la section 'à éviter' du musée 🖼️🚫.`,
-        `Même un trou noir se détourne pour éviter l'ombre de ${character.name}. C'est dire à quel point c'est un abyssale désastre 🌑❌.`,
-        `Même les pires cauchemars semblent plus attrayants que de croiser ${character.name}… un véritable tourment 👻💔.`,
-        `Si ${character.name} était une chanson, ce serait celle qu'on oublie après une seconde d'écoute 🔊🚫.`,
-        `Quand ${character.name} entre dans une pièce, même les plantes se fanent de honte 🌿💀.`
-      ];
-
-      if (!this.data._museum.epicCommentCache.has(character.uid)) {
-        comment = comments.getRandomElement();
-        this.data._museum.epicCommentCache.set(character.uid, comment);
-      } else {
-        comment = this.data._museum.epicCommentCache.get(character.uid);
-      }
-      }
-      
-      const outfitFields = cols.map((col, index) => {
-        return {
-          name: index == 0 ? 'Outfits' : '\u200b',
-          value: col.length > 0 ? col.join('\n') : '_(No image available)_',
-          inline: true
-        };
-      });
-
-      return [{
-        title: "Modification d'un personnage",
-        fields: [
-          {
-          name: FillString('Personnage', 32),
-          value: character.name ?? "John Doe",
-          inline: true
-          },
-          {
-          name: FillString('Arc', 32),
-          value: character.arc ?? "Narmol",
-          inline: true
-          },
-          {
-          name: 'Stats',
-          value: `- Smash ${smashed} fois. (${smashed_percent}%)\n- Pass ${passed} fois. (${passed_percent}%)\n- Ratio : ${ratio}\n${comment}`,
-          inline: false
-          },
-          ...outfitFields
-        ],
-        image: {
-          url: outfit.base64 ? `attachment://${attachment.name}` : outfit.url
-        },
-        color: 0x5865F2,
-      }];
-    },
-    files: function() {
-      let { attachment } = this.data._museum;
-  
-      if (attachment) {
-      return [ attachment ];
-      } else {
-      return [];
-      }
-    },
-    components: function() {
-      let character = this.data.characters[this.data._museum.index];
-
-      this.data._museum.outfitindex = this.data._museum.outfitindex ?? 0;
-      this.data._museum.selectoutfitpage = this.data._museum.selectoutfitpage ?? 0;
-
-      let OutfitsPages = character.outfits.map((o,i) => `[${i+1}] ${o.name ?? '_Unknown Outfit Name_'}`).chunkOf(25);
-
-      let hasOutfits = character.outfits.length > 0;
-      let hasMultipleOutfits = character.outfits.length > 1;
-      let hasMultiplePageOutfits = OutfitsPages.length > 1;
-
-      const getCharacter = (character) => {
-      if (!character) return `Nobody`;
-      return `${character.name} (${character.arc})`;
-      }
-
-      return [
-      [
-        {
-        type: ComponentType.StringSelect,
-        placeholder: Locales.get("command.sop.museum.outfit_select.placeholder"),
-        options: (hasOutfits ? OutfitsPages[this.data._museum.selectoutfitpage] : ['(No outfit available)']).map((name, index) => ({
-          label: name,
-          value: '' + (index + (25 * this.data._museum.selectoutfitpage)),
-          default: (!hasOutfits) || index === this.data._museum.outfitindex
-        })),
-        action: function({ interaction }) {
-          let index = Number(interaction.values[0]);
-          
-          if (index === this.data._museum.outfitindex) return false;
-
-          this.data._museum.outfitindex = index;
-          return true;
-        },
-        disabled: !(hasOutfits && hasMultipleOutfits)
-        }
-      ],
-      [
-        {
-        // Prev Page
-        emoji: Emotes.GetEmojiObject(Emotes.chevron.black.left.simple),
-        label: "\u200b",
-        action: function() {
-          this.data._museum.selectoutfitpage -= 1;
-          return true;
-        },
-        disabled: !(hasOutfits && hasMultiplePageOutfits && this.data._museum.selectoutfitpage > 0)
-        },
-        {
-        // Goto
-        label: `${(this.data._museum.selectoutfitpage || 0) + 1}/${OutfitsPages.length}`,
-        action: async function({ interaction }) {
-          let modal = new ModalForm({ title: "Voir une tenue spécifique", time: 120_000 })
-          .addRow().addTextField({ name: 'number', label: "Numéro de la tenue", placeholder: (this.data._museum.outfitindex ?? 0) + 1 })
-          ;
-          
-          let result = await modal.setInteraction(interaction).popup();
-          if (!result || isNaN(result.get('number'))) return false;
-  
-          this.data._museum.outfitindex = Math.clamp(
-          Number(result.get('number')) || 1,
-          1, this.data._museum.character.outfits.length
-          ) - 1;
-  
-          return true;
-        },
-        disabled: !(hasOutfits && hasMultiplePageOutfits)
-        },
-        {
-        // Next Page
-        emoji: Emotes.GetEmojiObject(Emotes.chevron.black.right.simple),
-        label: "\u200b",
-        action: function() {
-          this.data._museum.selectoutfitpage += 1;
-          return true;
-        },
-        disabled: !(hasOutfits && hasMultiplePageOutfits && this.data._museum.selectoutfitpage < OutfitsPages.length - 1)
-        },
-      ],
-      [
-        {
-        // Prev Character
-        // emoji: Emotes.GetEmojiObject(Emotes.chevron.black.left.simple),
-        label: "Previous : " + getCharacter(this.data.characters[this.data._museum.index - 1]),
-        action: function() {
-          this.data._museum.index -= 1;
-          return true;
-        },
-        disabled: typeof this.data.characters[this.data._museum.index - 1] === 'undefined'
-        },
-        {
-        // Next Character
-        // emoji: Emotes.GetEmojiObject(Emotes.chevron.black.right.simple),
-        label: "Next : " + getCharacter(this.data.characters[this.data._museum.index + 1]),
-        action: function() {
-          this.data._museum.index += 1;
-          return true;
-        },
-        disabled: typeof this.data.characters[this.data._museum.index + 1] === 'undefined'
-        },
-      ],
-      [
-        { label: "Retour", action: function({ interaction }) {
-        if (!this.members.includes(interaction.user.id)) return false;
-        this.goto('museum-select');
-        return true;
-        }},
-        { emoji: '🏠', label: "Home", action: function({ interaction }) {
-        if (!this.members.includes(interaction.user.id)) return false;
-        this.goto('home');
-        return true;
-        }},
-      ]
-      ];
-    },
-    },
-    {
-    name: "game-setup",
-    beforeUpdate: function() {
-      if (this.data.characters.length == 0) {
-      this.goto('no-character');
-      }
-    },
-    embeds: function() {
-      return [{
-      title: "🥵\u2000\u2000𝗦\u2000𝗠\u2000𝗔\u2000𝗦\u2000𝗛\u2000\u2000𝗢\u2000𝗥\u2000\u2000𝗣\u2000𝗔\u2000𝗦\u2000𝗦\u2000\u2000🥶",
-      fields: [
-        {
-        name: "Personnages",
-        value: `Il existe ${this.data.characters.length} personnages !`,
-        },
-        {
-        name: "Configuration de la partie",
-        value: Locales.get(`command.sop.play.setup.field.value.mode.${this.data.gamemode}`, [this.data.count || this.data.characters.length]),
-        }
-      ],
-      color: 0x5865F2,
-      }];
-    },
-    components: function() {
-      return [
-      ['random', 'famous', 'unfamous'].map(value => {
-        return {
-        label: Locales.get(`command.sop.play.setup.button.mode.${value}`),
-        style: this.data.gamemode === value ? ButtonStyle.Primary : ButtonStyle.Secondary,
-        action: async function({ interaction }) {
-          this.data.gamemode = value;
-          return true;
-        },
-        };
-      }),
-      [10,25,50].map(value => {
-        return {
-        label: Locales.get(`command.sop.play.setup.button.count.character`, [value]),
-        style: !this.data.ccount && this.data.count === value ? ButtonStyle.Primary : ButtonStyle.Secondary,
-        action: async function({ interaction }) {
-          this.data.count = value;
-          this.data.ccount = false;
-          return true;
-        },
-        };
-      }),
-      [
-        {
-        label: "Tous les personnages",
-        style: this.data.count === 0 ? ButtonStyle.Primary : ButtonStyle.Secondary,
-        action: async function({ interaction }) {
-          this.data.count = 0;
-          this.data.ccount = false;
-          return true;
-        },
-        },
-        {
-        label: this.data.ccount ? `Valeur personnalisée : ${this.data.count}` : "Valeur personnalisée",
-        style: this.data.ccount ? ButtonStyle.Primary : ButtonStyle.Secondary,
-        action: async function({ interaction }) {
-          let modal = new ModalForm({ title: "Selection du nombre de personnage", time: 120_000 })
-          .addRow().addTextField({ name: 'number', label: `Il existe ${this.data.characters.length} personnages`, placeholder: `${this.data.characters.length}` })
-          ;
-          
-          let result = await modal.setInteraction(interaction).popup();
-          if (!result) return false;
-          
-          let n = result.get('number');
-
-          if (isNaN(n)) return false;
-          
-          this.data.count = Math.clamp(Number(n), 1, this.data.characters.length);
-          this.data.ccount = true;
-
-          return true;
-        },
-        },
-      ],
-      [
-        {
-        label: "Lancer la partie",
-        action: function() {
-
-          let list = [];
-          switch (this.data.gamemode) {
-          case "random":
-            list = this.data.characters.shuffle().slice(0, this.data.count || this.data.characters.length);
-          break;
-          
-          case "famous":
-            list = this.data.characters.map(character => {
-            let { smashed, passed } = character.stats;
-            character.stats.ratio = (smashed - passed) / (smashed + passed);
-            return character;
-            }).sort((a,b) => b.stats.ratio - a.stats.ratio).slice(0, this.data.count || this.data.characters.length);
-          break;
-          
-          case "unfamous":
-            list = this.data.characters.map(character => {
-            let { smashed, passed } = character.stats;
-            character.stats.ratio = (smashed - passed) / (smashed + passed);
-            return character;
-            }).sort((a,b) => a.stats.ratio - b.stats.ratio).slice(0, this.data.count || this.data.characters.length);
-          break;
-          
-          default:
-            throw new Error("SMASH_OR_PASS_UNKNOWN_GAMEMODE");
-          }
-
-
-          this.data._game = {
-          characters: [...list],
-          character: null,
-          attachment: null,
-          outfit: null,
-          smashed: [],
-          passed: [],
-          };
-
-          this.goto('game-run');
-
-          return true;
-        },
-        style: ButtonStyle.Success
-        },
-        { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
-      ],
-      [
-        { emoji: '🏠', label: "Home", action: function({ interaction }) {
-        if (!this.members.includes(interaction.user.id)) return false;
-        this.goto('home');
-        return true;
-        }},
-      ],
-      ];
-    }
-    },
-    {
-    name: "no-character",
-    embeds: function() {
-      return [{
-      title: "🥵 SMASH OR PASS 🥶",
-      fields: [{
-        name: "Problème de configuration",
-        value: "Il n'y à aucun petit boule de personnage à smash..."
-      }],
-      color: 0x5865F2,
-      }];
-    },
-    components: []
-    },
-    {
-    name: "game-run",
-    beforeUpdate: async function() {
-      if (this.data._game.characters.length == 0) {
-      this.goto('game-end');
-      await this.update();
-      return true;
-      }
-
-      let character = this.data._game.characters.outRandomElement();
-      this.data._game.character = character;
-  
-      let outfit = character.outfits.getRandomElement() ?? { name: "_(No image available)_", url: NoOutfitDefaultImage };
-      this.data._game.outfit = outfit;
-  
-      this.data._game.attachment = GetAttachment(outfit);
-    },
-    files: function() {
-      return this.data._game.attachment ? [ this.data._game.attachment ] : [];
-    },
-    embeds: function() {
-      let {character, outfit, attachment, smashed, passed} = this.data._game;
-  
-      return [{
-      title: "🥵 SMASH OR PASS 🥶",
-      fields: [
-        {
-        name: FillString('Personnage', 16),
-        value: character.name ?? "John Doe",
-        inline: true
-        },
-        {
-        name: FillString('Arc', 16),
-        value: character.arc ?? "Narmol",
-        inline: true
-        },
-        {
-        name: "Tenue",
-        value: outfit.name,
-        inline: false
-        },
-      ],
-      image: {
-        url: attachment ? `attachment://${attachment.name}` : outfit.url
-      },
-      footer: {
-        text: `${smashed.length} Smash / ${passed.length} Pass • ${discordElement.member.displayName}`
-      },
-      color: 0x5865F2,
-      }];
-    },
-    components: function() {
-      let { character } = this.data._game;
-
-      return [
-      [
-        {
-        emoji: { name: "🥵" },
-        label: "\u200b\u2000 SMASH \u2000\u200b",
-        style: ButtonStyle.Danger,
-        disabled: character.rules.cant_be_smash ?? false,
-        action: function() {
-          this.data._game.smashed.push(character);
-          return true;
-        }
-        },
-        {
-        emoji: { name: "🥶" },
-        label: "\u200b\u2000 PASS \u2000\u200b",
-        style: ButtonStyle.Primary,
-        disabled: character.rules.cant_be_pass ?? false,
-        action: function() {
-          this.data._game.passed.push(character);
-          return true;
-        }
-        },
-      ],
-      [
-        {
-        emoji: { name: "🔒" },
-        label: "Quittez la partie",
-        action: "stop"
-        }
-      ]
-      ];
-    }
-    },
-    {
-    name: "game-end",
-    beforeUpdate: function() {
-      let {passed, smashed} = this.data._game;
-
-      smashed.forEach(c => dbManager.SOP.character.smash(c.guild, c.uid));
-      passed.forEach(c => dbManager.SOP.character.pass(c.guild, c.uid));
-
-      // this.collectorOptions.idle = 10_000;
-      // this.collector.stop('renew');
-
-      this.data._game.endIdleTimeout = setTimeout(() => {
-      this.collector.stop('stop');
-      }, 30_000);
-
-      this.deleteOnClose = false;
-    },
-    embeds: function() {
-      let {passed, smashed} = this.data._game;
-  
-      let comment = null;
-      if (smashed.length == 0) comment = "Tu es l'aigri originel";
-      if (passed.length >= smashed.length * 2) comment = `Si tu devais être un cornichon, tu serais aigre doux 🥒`;
-      if (passed.length >= smashed.length * 3) comment = `Tu es tellement aigre que même un citron aurait honte 🍋`;
-      
-      if (smashed.length == passed.length) comment = `L'équilibre parfait, le ying est le yang 👀`;
-      
-      if (passed.length == 0) comment = "Tu es l'horny originel";
-      if (smashed.length >= passed.length * 2) comment = `Ton nom est à côté de la définition de "horny" dans le dictionnaire`;
-      if (smashed.length >= passed.length * 3) comment = `Direction horny jail.` + Emotes.pshitpshit;
-
-      return [{
-      title: "🥵 SMASH OR PASS 🥶",
-      description: "Récapitulatif de tes smash / pass\n" + (comment ?? ''),
-      fields: [
-        {
-        name: FillString("SMASH 🔥 🥵", 64),
-        value: '\u200b'+ (smashed.length > 0 ? smashed.map(s => `${s.name} _(${s.arc})_`).join('\n') : "Tu es trop aigri•e pour avoir smash qui que ce soit."),
-        inline: true
-        },
-        {
-        name: FillString("PASS ❄ 🥶", 64),
-        value: '\u200b'+ (passed.length > 0 ? passed.map(s => `${s.name} _(${s.arc})_`).join('\n') : "Tu es trop horny pour avoir pass qui que ce soit."),
-        inline: true
-        },
-      ],
-      footer: {
-        text: `${smashed.length} Smash / ${passed.length} Pass`
-      },
-      color: 0x5865F2,
-      }];
-    },
-    components: function() {
-      return [
-      [
-        {
-        emoji: { name: "🔁" },
-        label: "Recommencer",
-        action: function() {
-          clearTimeout(this.data._game.endIdleTimeout);
-          this.deleteOnClose = true;
-          this.goto('home');
-          return true
-        }
-        },
-        {
-        emoji: { name: "🔒" },
-        label: "Terminer",
-        action: function() {
-          clearTimeout(this.data._game.endIdleTimeout);
-          this.collector.stop('stop');
-        }
-        },
-        {
-        emoji: { name: "🚮" },
-        label: "Supprimer",
-        action: function() {
-          clearTimeout(this.data._game.endIdleTimeout);
-          this.deleteOnClose = true;
-          this.collector.stop('stop');
-        }
-        }
-      ]
-      ];
-    }
-    }
+    ...PageMuseum,
   ]
   });
   
   await MenuGameSmashOrPass.send();
   await MenuGameSmashOrPass.handle({ client });
+}
+
+export async function GameSmashOrPassFinalViewer({ client, interaction }) {
+  let sopdata = null;
+  try {
+    sopdata = await FetchSOPData(interaction.message);
+  } catch (err) {
+    return interaction.reply("**Erreur de décompression :** " + err.message); 
+  }
+
+  const MenuGameSmashOrPass = new DiscordMenu({
+  element: interaction,
+  ephemeral: true, v2: true,
+  collectorOptions: {
+    idle: 60_000 // 1 minutes
+  },
+  data: {
+    color: {
+      red: 0xFF0000,
+      green: 0x00FF00,
+      blue: 0x0000FF,
+      indigo: 0x6558F2,
+      magenta: 0xF25865,
+      coral: 0xF26558,
+      lime: 0x65F258,
+    },
+    displayOptions: {
+      phone: false,
+      numberOfColumn: 2,
+    },
+    sop: sopdata,
+  },
+  pages: [
+    {
+      name: "main",
+      beforeUpdate: function() {
+        const sttgs = this.data.sop;
+
+        if (!this.data._main) {
+          const { super_passed, super_smashed, passed, smashed } = sttgs;
+
+          this.data._main = {
+            raw: this.data.sop,
+            NAVBAR: { page: 0, navspeed: 0 },
+            smashed: { pages: smashed.filter(e => isDefined(e) && !isNull(e)).chunkOf(25) },
+            passed: { pages: passed.filter(e => isDefined(e) && !isNull(e)).chunkOf(25) },
+            super_smashed: { pages: super_smashed.filter(e => isDefined(e) && !isNull(e)).chunkOf(25) },
+            super_passed: { pages: super_passed.filter(e => isDefined(e) && !isNull(e)).chunkOf(25) },
+          };
+          
+          this.data._main.NAVBAR.pages = Array.from(Array(Math.max(smashed.length, passed.length, super_smashed.length, super_passed.length))).chunkOf(25);
+        }
+      },
+      components: async function() {
+        const sttgs = this.data._main;
+        const displayOptions = this.data.displayOptions;
+
+        return [{
+          type: ComponentType.Container,
+          accent_color: this.data.color.indigo,
+          components: [
+            [
+              "# 🥵 SMASH OR PASS 🥶",
+              "",
+              `**Récapitulatif des smash et pass de ${sttgs.raw.player}**`,
+              '',
+              "## SMASH 🔥 🥵",
+              sttgs.raw.smashed.length > 0 ? ValidateArray(sttgs.smashed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.smashed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn) : '```Tu es trop aigri•e pour avoir smash qui que ce soit```',
+              '',
+              "## PASS ❄ 🥶",
+              sttgs.raw.passed.length > 0 ? ValidateArray(sttgs.passed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.passed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn) : '```Tu es trop horny pour avoir pass qui que ce soit```',
+              '',
+              sttgs.raw.super_smashed.length > 0 && [
+                "## ✨ SUPER SMASH 🔥 🥵",
+                ValidateArray(sttgs.super_smashed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.super_smashed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn),
+                '',
+              ],
+              sttgs.raw.super_passed.length > 0 && [
+                "## ✨ SUPER PASS 🔥 🥵",
+                ValidateArray(sttgs.super_passed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.super_passed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn),
+                '',
+              ],
+              sttgs.raw.comment,
+              '',
+              `${sttgs.raw.smashed.length + sttgs.raw.super_smashed.length} Smash / ${sttgs.raw.passed.length + sttgs.raw.super_passed.length} Pass`,
+              sttgs.NAVBAR.pages.length > 1 && `-# Vitesse de navigation : ±${[1,5,10][sttgs.NAVBAR.navspeed]} | Page ${sttgs.NAVBAR.page+1}/${Math.max(1,sttgs.NAVBAR.pages.length)}`,
+            ].flat().filter(isString),
+            sttgs.NAVBAR.pages.length > 1 && GetNavBar(sttgs.NAVBAR),
+            [
+              {
+                label: "Voir les personnages",
+                action: "goto:view"
+              },
+              {
+                label: "📱",
+                style: displayOptions.phone ? ButtonStyle.Success : ButtonStyle.Secondary,
+                action: function() {
+                  displayOptions.phone = !displayOptions.phone;
+
+                  if (displayOptions.phone) {
+                    displayOptions.numberOfColumn = 1; 
+                  } else {
+                    displayOptions.numberOfColumn = 2; 
+                  }
+
+                  return true;
+                },
+              },
+            ],
+            [
+              { emoji: "🔒", label: "Fermer", action: "stop", style: ButtonStyle.Danger },
+            ]
+          ]
+        }];
+      }
+    },
+    {
+      name: "view",
+      beforeUpdate: async function() {
+        if (!this.data._view) {
+          const SOP = this.data.sop;
+
+          const any = [
+            ...SOP.super_smashed.map(e => ({ ...e, smashed: true, super: true })),
+            ...SOP.smashed.map(e => ({ ...e, smashed: true, super: false })),
+            ...SOP.super_passed.map(e => ({ ...e, smashed: false, super: true })),
+            ...SOP.passed.map(e => ({ ...e, smashed: false, super: false }))
+          ].sort(SortByName);
+
+          this.data._view = {
+            mode: 'any',
+            mapped: {},
+            any: {
+              list: any,
+              page: 0, navspeed: 0, uid: 0,
+            },
+            smashed: {
+              list: any.filter(e => e.smashed),
+              page: 0, navspeed: 0, uid: 0,
+            },
+            passed: {
+              list: any.filter(e => !e.smashed),
+              page: 0, navspeed: 0, uid: 0,
+            }
+          };
+
+          for (let mode of ['any', 'smashed', 'passed']) {
+            this.data._view[mode].pages = this.data._view[mode].list.chunkOf(25);
+          }
+          
+          any.forEach(data => this.data._view.mapped[data.character.uid] = data);
+        }
+
+        const sttgs = this.data._view;
+        
+        const navbar = sttgs[sttgs.mode];
+        if (!navbar.uid) sttgs[sttgs.mode].uid = navbar.list[0].character.uid;
+        const displaydata = sttgs.mapped[navbar.uid];
+
+        sttgs.attachments = await Promise.all([
+          GetCachedOutfitAttachment(displaydata.outfit)
+        ]);
+      },
+      files: function() {
+        const sttgs = this.data._view;
+        return sttgs.attachments;
+      },
+      components: async function() {
+        const sttgs = this.data._view;
+        
+        const navbar = sttgs[sttgs.mode];
+        const displaydata = sttgs.mapped[navbar.uid];
+
+        return [{
+          type: ComponentType.Container,
+          accent_color: this.data.color.indigo,
+          components: [
+            [
+              displaydata.smashed
+                ? (displaydata.super ? "# GOT SUPER SMASHED" : "# GOT SMASHED")
+                : (displaydata.super ? "# GOT SUPER PASSED" : "# GOT PASSED")
+              ,
+              "",
+              `## ${displaydata.character.name}`,
+              `### Tenue: ${displaydata.outfit ? displaydata.outfit.name : 'Aucun visuel disponible'}`,
+              displaydata.arc && `### Arc: ${displaydata.arc.name}`,
+              displaydata.outfit?.artist?.name && "Visuel créer par " + (displaydata.outfit.artist.link ? `[${displaydata.outfit.artist.name}](${displaydata.outfit.artist.link})` : displaydata.outfit.artist.name),
+            ].flat().filter(isString),
+            {
+              type: ComponentType.MediaGallery,
+              items: sttgs.attachments?.map(attachment => ({ media: { url: `attachment://${attachment.name}` } }))
+            },
+            `Character: \`[${navbar.uid}]\` | Outfit: \`[${displaydata.outfit?.uid || 'None'}]\``,
+            '.---',
+            [{
+              type: ComponentType.StringSelect,
+              disabled: ValidateArray(navbar.pages[navbar.page], []).length === 0,
+              options: ValidateArray(navbar.pages[navbar.page], []).length > 0
+                ? navbar.pages[navbar.page].map((e,i) => ({ label: `${(i+1)+(navbar.page*25)}. ${e.super ? e.smashed ? '⭐ ' : '💀 ' : ''}${e.character.name}, Tenue: ${ e.outfit ? e.outfit.name : 'Inconnue' }`.limit(100), value: e.character.uid, default: e.character.uid === navbar.uid }))
+                : [{ label: "Aucun personnage à afficher", value: "none", default: true }]
+              ,
+              action: async function({ interaction }) {
+                navbar.uid = interaction.values[0];
+                return true;
+              },
+            }],
+            navbar.pages.length > 1 && GetNavBar(navbar),
+
+            ['any', 'smashed', 'passed'].map(mode => ({
+              label: mode.toUpperCase(),
+              style: sttgs.mode == mode ? ButtonStyle.Primary : ButtonStyle.Secondary,
+              action: function() {
+                if (sttgs.mode == mode) return false;
+                sttgs.mode = mode;
+                return true
+              },
+            })),
+            [
+              {
+                emoji: { name: '👈' },
+                label: "\u200b",
+                action: "goto:main"
+              },
+            ]
+          ]
+        }];
+      }
+    },
+  ],
+  });
+  
+  await MenuGameSmashOrPass.send();
+  await MenuGameSmashOrPass.handle({ client });
+}
+
+export async function FetchSOPData(message) {
+  try {
+    // 1. Trouver l'attachement qui correspond à notre fichier binaire
+    const binFile = message.components[0].components[2].file.data.url;
+
+    if (!binFile) {
+      console.error("Fichier data.bin introuvable dans le message.");
+      return null;
+    }
+
+    // 2. Télécharger le contenu (Buffer)
+    const response = await fetch(binFile);
+    if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    // 3. Décompresser (Gzip) et parser le JSON
+    const decompressed = gunzipSync(buffer);
+    const data = JSON.parse(decompressed.toString());
+
+    return data;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des données SOP:", error.message);
+    return null;
+  }
 }
 
 export function GetNavBar(sttgs) {

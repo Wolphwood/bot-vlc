@@ -18,31 +18,29 @@ const LOG_DIR = path.join(process.cwd(), 'logs');
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR);
 
 const getLogStream = () => {
-  const now = new Date();
+  const date = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+  let counter = 1;
+  let fileName = `${date}-${counter}.log`;
+  let filePath = path.join(LOG_DIR, fileName);
+
+  while (fs.existsSync(filePath)) {
+    counter++;
+    fileName = `${date}-${counter}.log`;
+    filePath = path.join(LOG_DIR, fileName);
+  }
   
-  const timestamp = now.toISOString()
-    .replace(/T/, '_')
-    .replace(/:/g, '-')
-    .replace(/\..+/, '');
-  
-  const ms = String(now.getMilliseconds()).padStart(3, '0');
-  
-  const randomId = Math.random().toString(36).substring(2, 5);
-  
-  const fileName = `log_${timestamp}-${ms}_${randomId}.log`;
-  
-  return fs.createWriteStream(path.join(LOG_DIR, fileName));
+  return fs.createWriteStream(filePath);
 };
 
 let logStream = getLogStream();
 
 const writeToLog = (level, ...args) => {
   const timestamp = new Date().toLocaleTimeString('fr-FR', { hour12: false });
-  
+
   const message = args.map(arg => {
     // Si c'est une erreur, on extrait le message et la stack trace
     if (arg instanceof Error || (arg && arg.stack && arg.message)) {
-      return util.inspect(arg, { depth: null, colors: false });
+      return util.inspect(arg, { showHidden: false, maxArrayLength: null, maxStringLength: null, depth: null, colors: true });
     }
     // Si c'est un objet classique, on garde votre logique JSON
     if (typeof arg === 'object' && arg !== null) {
@@ -110,7 +108,13 @@ console.fatal = (...args) => {
     
     // On traite le contenu pour en faire une seule string stylisée
     const formatted = args
-      .map(a => typeof a == 'string' ? a : util.inspect(a, { depth: null, colors: false }))
+      .map(a => typeof a == 'string' ? a : util.inspect(a, { 
+        showHidden: false,
+        maxArrayLength: null,
+        maxStringLength: null,
+        depth: null,
+        colors: false
+      }))
       .join(' ') // On simule le comportement de console.log pour les multiples args
       .split('\n')
       .map(line => `\x1B[38;5;0m\x1B[48;5;196m\x1B[K${line}\x1B[0m`)
@@ -145,7 +149,7 @@ console.inspect = (...args) => {
       maxArrayLength: null,
       maxStringLength: null,
       depth: null,
-      colors: true 
+      colors: true
     }));
   });
 };

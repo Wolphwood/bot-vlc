@@ -5,7 +5,6 @@ import Locales from '#modules/Locales';
 export default {
   name: "shutdown",
   aliases: ['shut'],
-  aliases: ['e'],
   userPermission: PERMISSION.ROOT,
   category: 'root',
 
