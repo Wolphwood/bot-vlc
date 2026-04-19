@@ -1,21 +1,16 @@
-const client = require('../../app');
+import { PERMISSION } from '#constants';
+import { noop } from '#modules/Utils';
+import Locales from '#modules/Locales';
 
-const CommandObject = {
-    name: "shutdown",
-    aliases: ['shut'],
-    description: null,
-    syntax: null,
-    userPermission: client.PERMISSION.ROOT,
-    category: 'root',
-    run: async ({ client, message, prefix, command, args, userPermissionLevel, GuildData, UserData }) => {
-        await message.channel.send(Locale.get('command.shutdown.success'));
-        process.exit();
-    }
+export default {
+  name: "shutdown",
+  aliases: ['shut'],
+  userPermission: PERMISSION.ROOT,
+  category: 'root',
+
+  run: async ({ message }) => {
+    await message.channel.send(Locales.get('command.shutdown.success'));
+    await message.delete().catch(noop);
+    process.exit();
+  }
 };
-
-CommandObject.description = Locale.get(`commandinfo.${CommandObject.name.replace(/-/gi,'')}.description`) || 'No description';
-CommandObject.syntax = Locale.get(`commandinfo.${CommandObject.name.replace(/-/gi,'')}.syntax`) || '¯\\_(ツ)_/¯';
-
-
-
-module.exports = CommandObject;

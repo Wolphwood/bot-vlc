@@ -1,1 +1,3 @@
-[![wakatime](https://wakatime.com/badge/user/e7de38c3-c624-46fc-bc5f-60a312413e6b/project/42a07653-75bc-4ec8-96f2-e0dc3a6a8182.svg)](https://wakatime.com/badge/user/e7de38c3-c624-46fc-bc5f-60a312413e6b/project/42a07653-75bc-4ec8-96f2-e0dc3a6a8182)
+Bot v1.0 : [![wakatime](https://wakatime.com/badge/user/e7de38c3-c624-46fc-bc5f-60a312413e6b/project/42a07653-75bc-4ec8-96f2-e0dc3a6a8182.svg)](https://wakatime.com/badge/user/e7de38c3-c624-46fc-bc5f-60a312413e6b/project/42a07653-75bc-4ec8-96f2-e0dc3a6a8182)
+
+Bot v2.0 : [![wakatime](https://wakatime.com/badge/user/e7de38c3-c624-46fc-bc5f-60a312413e6b/project/1d794966-bc3f-4d2c-9a8e-16c9dc2fb779.svg)](https://wakatime.com/badge/user/e7de38c3-c624-46fc-bc5f-60a312413e6b/project/1d794966-bc3f-4d2c-9a8e-16c9dc2fb779)

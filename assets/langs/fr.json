@@ -2,6 +2,7 @@
     "lang.name": "Français",
     "generic.error.invalid": "La valeur entrée est invalide.",
     "generic.error.command.unknow": "Commande inconnue :thinking:",
+    "generic.error.subcommand.unknow": "Sous-Commande inconnue :thinking:",
     "generic.error.command.unknow.troll": "English or Spannish ? :dotted_line_face:",
     "generic.error.command.internal_error": "Une erreur interne est survenue.\n Le code d'erreur est `[%0a]`",
     "generic.error.slash.unavailable": "La commande est indisponible.",

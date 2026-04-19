@@ -1,8 +1,18 @@
-const {
+import { Registry } from '#modules/Registry';
+Registry.register({
+  name: "Lang Manager",
+  version: "1.0",
+  details: [
+    "Locales",
+    "LocaleManager",
+  ]
+});
+
+import {
     isBoolean, isObject, isArray, isString, isNumber, isEmpty, isNull, isDefined,
     noop, selfnoop, KeyOf,
     ValidateBoolean, ValidateObject, ValidateArray, ValidateString, ValidateNumber,
-} = require("./functions/Utils.js");
+} from "#modules/Utils"
 
 let LANGS = {};
 
@@ -214,7 +224,10 @@ class LocaleManager {
     }
 }
 
-const Locale = new LocaleManager();
+const Locales = new LocaleManager();
+export default Locales;
 
-exports.Locale = Locale;
-exports.LocaleManager = LocaleManager;
+export {
+    Locales,
+    LocaleManager,
+}

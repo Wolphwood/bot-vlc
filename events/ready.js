@@ -1,22 +1,132 @@
-// ========================================================================== //
-global.loadedModules.events.push({
-    name: "Ready",
-    version: "1.0"
+import { Events } from 'discord.js';
+import { Registry } from '#modules/Registry';
+
+Registry.register({
+  name: "Event: ClientReady",
+  group: "events",
+  version: "2.0"
 });
-// ========================================================================== //
 
-module.exports = async ({ client }) => {
-    const { prefix } = client.config
+export default {
+  name: Events.ClientReady,
+  once: true,
+  run: async ({ client }) => {
+    console.log(`Enregistrement des commandes pour ${client.user.tag}...`);
 
-    client.user.setStatus('online');
-    client.user.setActivity(prefix +'help');
-    
-    console.log(`Connecté en tant que ${client.user.tag}`);
-    console.log("Bot en fonctionnement.\n");
-    
-    global.ModuleLoaderList();
+    const formatCommand = (cmd) => ({
+      ...cmd.discord,
+      name: cmd.name.toLowerCase().simplify().trim(),
+      description: cmd.description
+    });
+
+    try {
+      const fullCommands = [
+        ...client.slashCommands.values(),
+        ...client.hybridCommands.values()
+      ].map(formatCommand);
+
+      await client.application.commands.set(fullCommands);
+      
+      console.log(`[OK] ${fullCommands.length} commandes (Slash/Hybrid) synchronisées avec Discord !`);
+    } catch (error) {
+      console.error("[NOK] Erreur lors de l'enregistrement des commandes :", error);
+    }
+
+
+
+    let mEvents = [];
+    let mUtils = [];
+    let mDatabases = [];
+    let mOther = [];
+    Array.from(Registry.getValues()).forEach(entry => {
+      if (entry.group == "events") {
+        mEvents.push(entry);
+      } else
+      if (entry.group == "utils") {
+        mUtils.push(entry);
+      } else
+      if (entry.group == "database") {
+        mDatabases.push(entry);
+      } else {
+        mOther.push(entry);
+      }
+    });
+
     console.blank();
+    console.llog(generateTree(
+      `${mEvents.length} Events Chargés`,
+      mEvents.map(module => ({ label: `${module.name}`, info: module.version ? `v${module.version}` : '', children: module.details?.map(label => ({ label })) }))
+    ));
+    console.blank();
+    console.llog(generateTree(
+      `${client.textCommands.size + client.hybridCommands.size + client.slashCommands.size} Commandes Chargées.`,
+      [
+        {
+          label: `${client.textCommands.size} TEXT`,
+          children: client.textCommands.values().map(command => ({ label: command.name, info: command.version ? `v${command.version}` : '' })).toArray()
+        },
+        {
+          label: `${client.hybridCommands.size} HYBRID`,
+          children: client.hybridCommands.values().map(command => ({ label: command.name, info: command.version ? `v${command.version}` : '' })).toArray()
+        },
+        {
+          label: `${client.slashCommands.size} SLASH`,
+          children: client.slashCommands.values().map(command => ({ label: command.name, info: command.version ? `v${command.version}` : '' })).toArray()
+        },
+      ]
+    ));
+
     
-    // Kick from all vocals
-    // client.guilds.cache.map(guild => guild.members.cache.filter(m => m.id === client.user.id).forEach(m => m.voice.kick()))
+    console.blank();
+    console.llog(generateTree(
+      `${mDatabases.length} Database Modules`,
+      mDatabases.map(module => ({ label: `${ module.details?.length || 1 } ${module.name}`, info: module.version ? `v${module.version}` : '', children: module.details?.map(label => ({ label })) }))
+    ));
+
+    console.blank();
+    console.llog(generateTree(
+      `${mUtils.length} Utils Modules`,
+      mUtils.map(module => ({ label: `${ module.details?.length || 1 } ${module.name}`, info: module.version ? `v${module.version}` : '', children: module.details?.map(label => ({ label })) }))
+    ));
+
+    if (mOther.length > 0) {
+      console.blank();
+      console.llog(generateTree(
+        `${mOther.length} Other Modules`,
+        mOther.map(module => ({ label: `${ module.details?.length || 1 } ${module.name}`, info: module.version ? `v${module.version}` : '', children: module.details?.map(label => ({ label })) }))
+      ));
+    }
+  }
+};
+
+
+/**
+ * Génère une structure en arbre sous forme de String
+ * @param {string} title - Le titre de la section
+ * @param {Array} data - Tableau d'objets { label, info, children }
+ * @returns {string} - L'arbre formaté
+ */
+export function generateTree(title, data) {
+  let output = ` # === ${title}\n`;
+
+  const render = (items, prefix = "") => {
+
+    items.forEach((item, index) => {
+      const isLast = index === items.length - 1;
+      const connector = isLast ? " `- " : " |- ";
+      const childPrefix = isLast ? "  " : " | ";
+
+      // Construction de la ligne
+      const info = item.info ? ` ${item.info}` : "";
+      output += `${prefix}${connector}${item.label}${info}\n`;
+
+      if (item.children && item.children.length > 0) {
+        render(item.children, prefix + childPrefix);
+        if (!isLast) output += `${prefix} |  \n`;
+      }
+    });
+  };
+
+  render(data);
+  return output;
 }

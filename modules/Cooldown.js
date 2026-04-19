@@ -1,70 +1,139 @@
-// ========================================================================== //
-global.loadedModules.modules.push({
-    name: "Cooldown",
-    version: "3.2",
-    details: [
-        'module.purge',
-        'module.Cooldown',
-        'Cooldown.passed',
-        'Cooldown.set',
-        'Cooldown.reset',
-        'Cooldown.list',
-    ]
+import { Registry } from '#modules/Registry';
+// MARK: Register Module
+Registry.register({
+  name: "Cooldown",
+  version: "4.0",
+  details: [
+    'module.purge',
+    'module.Cooldown',
+    'Cooldown.cooldown',
+    'Cooldown.exist',
+    'Cooldown.prototype.passed',
+    'Cooldown.prototype.remain',
+    'Cooldown.prototype.set',
+    'Cooldown.prototype.setTimestamp',
+    'Cooldown.prototype.reset',
+    'Cooldown.prototype.toJSON',
+    'Cooldown.prototype.clone',
+  ]
 });
-// ========================================================================== //
-
-const _COOLDOWN = {};
-
-function purge() {
-	Object.keys(_COOLDOWN).forEach(cldwn => {
-		Object.keys(_COOLDOWN[cldwn]).forEach(key => {
-			if (Date.time() >= _COOLDOWN[cldwn][key]) delete _COOLDOWN[cldwn][key];
-		});
-		if (Object.keys(_COOLDOWN[cldwn]).length === 0) delete _COOLDOWN[cldwn];
-	});
-}
-const purgeInterval = setInterval(purge, 5*60*1000);
 
 
-class Cooldown {
-	cldwn;id;value;
-	constructor(cldwn,id){
-		if (typeof id === 'undefined') {throw 'INVALID_COOLDOWN_ID';}
-		
-		if (!Cooldown.cooldown[cldwn]) Cooldown.cooldown[cldwn] = {};
-		if (!Cooldown.cooldown[cldwn][id]) Cooldown.cooldown[cldwn][id] = Date.time();
-		
-		this.cldwn = cldwn;
-		this.id = id;
-		this.value =  Cooldown.cooldown[cldwn][id] - Date.time();
-		this.timestamp = Cooldown.cooldown[cldwn][id];
-	}
-	static get cooldown() {return _COOLDOWN;}
-	
-	passed() {
-		return this.value < 1;
-	}
-	
-	set(time=0) {
-		this.value = time;
-		this.timestamp = Date.time() + time;
-		Cooldown.cooldown[this.cldwn][this.id] = this.timestamp; 
-	}
+const _COOLDOWN = new Map();
 
-	reset() {
-		this.value = 0;
-		this.timestamp = Date.time();
-		Cooldown.cooldown[this.cldwn][this.id] = 0;
-	}
-
-	list() {
-		return _COOLDOWN;
-	};
+/**
+ * Nettoie les cooldowns expirés pour libérer la RAM
+ */
+export function purge() {
+  for (const [name, users] of _COOLDOWN.entries()) {
+    for (const [id, timestamp] of users.entries()) {
+      if (Date.timestamp() >= timestamp) {
+        users.delete(id);
+      }
+    }
+    if (users.size === 0) {
+      _COOLDOWN.delete(name);
+    }
+  }
 }
 
+// Nettoyage automatique toutes les 5 minutes
+export const purgeInterval = setInterval(purge, 5 * 60 * 1000);
 
-module.exports = {
-	purgeInterval: purgeInterval,
-	purge: purge,
-	Cooldown: Cooldown
-};
+export class Cooldown {
+  constructor({ name, id, value = 0, timestamp } = {}) {
+    if (name === undefined) throw new Error('INVALID_COOLDOWN_NAME');
+    if (id === undefined) throw new Error('INVALID_COOLDOWN_ID');
+
+    // Initialisation de la structure si absente
+    if (!_COOLDOWN.has(name)) _COOLDOWN.set(name, new Map());
+    
+    const category = _COOLDOWN.get(name);
+    
+    // Si un timestamp est fourni, on l'utilise, sinon on initialise à l'instant T
+    if (!category.has(id)) {
+      category.set(id, timestamp ?? Date.timestamp());
+    }
+
+    this.name = name;
+    this.id = id;
+    this.timestamp = category.get(id);
+    this.value = value || Math.max(0, this.timestamp - Date.timestamp());
+  }
+
+  /**
+   * Accès statique aux données brutes
+   */
+  static get cooldown() {
+    return _COOLDOWN;
+  }
+
+  /**
+   * Vérifie si un cooldown existe en mémoire
+   */
+  static exist(name, id) {
+    if (!name) return false;
+    if (!id) return _COOLDOWN.has(name);
+    return _COOLDOWN.get(name)?.has(id) ?? false;
+  }
+
+  /**
+   * Vérifie si le cooldown est terminé
+   */
+  passed() {
+    return Date.timestamp() >= this.timestamp;
+  }
+
+  /**
+   * Retourne le temps restant en secondes
+   */
+  remain() {
+    return Math.max(0, this.timestamp - Date.timestamp());
+  }
+
+  /**
+   * Définit un cooldown de X secondes à partir de maintenant
+   */
+  set(time = 0) {
+    this.value = time;
+    this.timestamp = Date.timestamp() + time;
+    _COOLDOWN.get(this.name).set(this.id, this.timestamp);
+  }
+
+  /**
+   * Force un timestamp précis
+   */
+  setTimestamp(value = Date.timestamp()) {
+    const now = Date.timestamp();
+    if (value > now) {
+      this.timestamp = value;
+      this.value = value - now;
+    } else {
+      this.timestamp = 0;
+      this.value = 0;
+    }
+    _COOLDOWN.get(this.name).set(this.id, this.timestamp);
+  }
+
+  /**
+   * Réinitialise le cooldown
+   */
+  reset() {
+    this.value = 0;
+    this.timestamp = 0;
+    _COOLDOWN.get(this.name)?.set(this.id, 0);
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      id: this.id,
+      value: this.value,
+      timestamp: this.timestamp,
+    };
+  }
+
+  clone() {
+    return new Cooldown(this.toJSON());
+  }
+}
