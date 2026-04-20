@@ -183,8 +183,6 @@ export default [
           };
           sttgs.character.outfits.forEach(outfit => sttgs.outfits.mapped[outfit.id] = outfit);
         }
-
-        if (sttgs.character.outfits.length === 1) sttgs.outfit = sttgs.character.outfits[0];
       } else {
         sttgs.outfit = null;
         sttgs.arc = null;
@@ -244,6 +242,7 @@ export default [
               ]
               : [
                 `## ${sttgs.character.name}`,
+                `Créer par <@${sttgs.character.rules.owner}>`,
                 !sttgs.outfit && [
                   "Selectionnez une tenue pour la visualiser",
                   NumerotedListToColumns(sttgs.outfits.pages[sttgs.outfits.page]?.map((e,i) => `${(i+1)+(sttgs.outfits.page*25)}. ${e.name}`), displayOptions.numberOfColumn),
@@ -357,6 +356,9 @@ export default [
               action: function() {
                 const index = sttgs.characters.list.findIndex(c => c.uid === sttgs.character.uid);
                 if (index < sttgs.characters.list.lastIndex) {
+                  sttgs.outfits = null; sttgs.arcs = null;
+                  sttgs.outfit = null; sttgs.arc = null;
+
                   sttgs.characters.page = Math.floor((index + 1) / 25);
                   sttgs.character = sttgs.characters.list[index + 1];
                   return true;
@@ -418,7 +420,7 @@ export default [
             }
           }],
 
-          sttgs.character && sttgs.character.outfits.length > 1 && [{
+          sttgs.character  && [{
             type: ComponentType.StringSelect,
             placeholder: "Selectionnez une tenue",
             min_values: 0, max_values: 1,

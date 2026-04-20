@@ -29,6 +29,7 @@ import {
 	selfnoop,
 	isDefined,
 	isNull,
+	ValidateObject,
 } from "#modules/Utils";
 import { dbManager } from "#modules/database/Manager";
 
@@ -276,6 +277,7 @@ export class DiscordMenu {
 		
 		this.ephemeral = ValidateBoolean(options.ephemeral, false);
 		this.useComponentsV2 = ValidateBoolean(options.v2, false);
+		this.sendOptions = ValidateObject(options.sendOptions, {});
 		
 		this.flags = [];
 		if (this.ephemeral) this.flags.push(MessageFlags.Ephemeral);
@@ -483,7 +485,6 @@ export class DiscordMenu {
 		if (!baseElements) return [];
 
 		const finalComponents = await Promise.all(baseElements.filter(e => isString(e) || NonEmpty(e)).map(processElement));
-		// console.inspect(finalComponents);
 
 		return finalComponents.flat().filter(selfnoop);
 	}
@@ -648,7 +649,7 @@ export class DiscordMenu {
 		]);
 
 		const flags = this.flags;
-		return this.useComponentsV2 ? { components, files, flags } : { content, components, embeds, files, flags };
+		return this.useComponentsV2 ? { ...this.sendOptions, components, files, flags } : { ...this.sendOptions, content, components, embeds, files, flags };
 	}
 
 	async runHook(context, hookName, args = {}) {

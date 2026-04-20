@@ -107,6 +107,7 @@ export async function GameSmashOrPass({ client, discordElement, GuildData, UserD
   const MenuGameSmashOrPass = new DiscordMenu({
   element: discordElement,
   ephemeral: true, v2: true,
+  sendOptions: { allowedMentions: { users: [] } },
   collectorOptions: {
     idle: 600_000 // 10 minutes
   },
@@ -359,6 +360,7 @@ export async function GameSmashOrPassFinalViewer({ client, interaction }) {
             ['any', 'smashed', 'passed'].map(mode => ({
               label: mode.toUpperCase(),
               style: sttgs.mode == mode ? ButtonStyle.Primary : ButtonStyle.Secondary,
+              disabled: ValidateArray(sttgs[mode]?.list, []).length === 0,
               action: function() {
                 if (sttgs.mode == mode) return false;
                 sttgs.mode = mode;

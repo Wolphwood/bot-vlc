@@ -1170,18 +1170,6 @@ async function VentureCore({ discordElement, GuildData, UserData }) {
                                     return true;
                                 }
                             },
-                            // {
-                            //     label: "DEBUG",
-                            //     action: async function() {
-                            //         console.blank(2);
-                            //         console.inspect(this.data);
-                            //         console.blank(2);
-
-                            //         fs.writeFileSync("./debug.txt", JSON.stringify(this.data, null, 2));
-
-                            //         return false;
-                            //     }
-                            // },
                         ]
                     ]
                 }

@@ -370,8 +370,6 @@ export class Manager {
 					}
 				}
 
-				console.inspect({ '$set': setQuery });
-
 				const updated = await Models.ModelSopCharacter.findOneAndUpdate(
 					{ uid, 'outfits.id': outfit.id },
 					{ $set: setQuery },
