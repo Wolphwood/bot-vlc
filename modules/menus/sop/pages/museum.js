@@ -3,6 +3,30 @@ import { isString, selfnoop, ValidateArray } from "#modules/Utils";
 import { ButtonStyle, ComponentType } from "discord.js"
 import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName, SortByReversedName, SortByRatio, SortByReversedRatio } from "../index.js";
 import { dbManager } from "#modules/database/Manager";
+import Emotes from "#modules/Emotes";
+
+function CalcScore({ smashed = 0, passed = 0, super_smashed = 0, super_passed = 0 } = {}) {
+
+  const totalSmash = smashed + (super_smashed * 2);
+  const totalPass = passed + (super_passed * 2);
+          
+  const totalVolume = totalSmash + totalPass;
+
+  let score, ratio;
+  if (totalVolume === 0) {
+    score = 0;
+    ratio = 0;
+  } else {
+    score = totalSmash - totalPass;
+    ratio = Math.round(((totalSmash - totalPass) / totalVolume) * 100) / 100;
+  };
+
+  return {
+    smashed, passed, super_smashed, super_passed,
+    totalSmash, totalPass, totalVolume,
+    score, ratio,
+  }
+}
 
 export default [
   {
@@ -86,21 +110,10 @@ export default [
     beforeUpdate: async function() {
       if (!this.data._museum._view) {
         const characters = this.data._museum.characters.map(character => {
-          const { smashed = 0, passed = 0, super_smashed = 0, super_passed = 0 } = character.stats;
+          const { smashed, passed, super_smashed, super_passed, score, ratio } = CalcScore(character.stats);
 
-          const totalSmash = smashed + (super_smashed * 2);
-          const totalPass = passed + (super_passed * 2);
-          
-          const totalVolume = totalSmash + totalPass;
-
-          if (totalVolume === 0) {
-            character.score = 0;
-            character.ratio = 0;
-          } else {
-            const ratio = (totalSmash - totalPass) / totalVolume;
-            character.score = totalSmash - totalPass;
-            character.ratio = Math.round(ratio * 100) / 100;
-          };
+          character.score = score;
+          character.ratio = ratio;
 
           const variations = [
             // Cas extrêmes (Zéro absolu)
@@ -156,7 +169,14 @@ export default [
           sttgs.character.arcs.forEach(arc => sttgs.arcs.mapped[arc.id] = arc);
         }
         if (!sttgs.outfits) {
-          const outfits = sttgs.character.outfits.sort(SortByName);
+          const outfits = sttgs.character.outfits.map(outfit => {
+            const { score, ratio } = CalcScore(outfit.stats);
+            
+            outfit.score = score;
+            outfit.ratio = ratio;
+
+            return outfit;
+          }).sort(SortByName);
           sttgs.outfits = {
             list: outfits, mapped: {},
             page: 0, pages: outfits.chunkOf(25), navspeed: 0,
@@ -219,7 +239,7 @@ export default [
             "# Musée des personnages",
             !sttgs.character
               ? [
-                "Selectionne un personnages",
+                "Selectionne un personnage",
                 NumerotedListToColumns(sttgs.characters.pages[sttgs.characters.page].map((e,i) => `${(i+1)+(sttgs.characters.page*25)}. ${e.name}`), displayOptions.numberOfColumn),
               ]
               : [
@@ -231,17 +251,44 @@ export default [
                 sttgs.outfit && `### ${sttgs.outfit.name}`,
                 sttgs.arc && `### ${sttgs.arc.name}`,
                 sttgs.outfit?.artist?.name && `Visuel créer par ${ sttgs.outfit?.artist?.link ? `[${sttgs.outfit?.artist?.name}](${sttgs.outfit?.artist?.link})` : sttgs.outfit?.artist?.name }`,
-                "",
-                `- Nombre de fois Smashé·e : ${sttgs.character.stats.smashed}`,
-                `- Nombre de fois Passé·e : ${sttgs.character.stats.passed}`,
-                `- Nombre de fois Super Smashé·e : ${sttgs.character.stats.super_smashed}`,
-                `- Nombre de fois Super Passé·e : ${sttgs.character.stats.super_passed}`,
-                `Ratio de popularité : ${sttgs.character.ratio}`,
-                `Score total : ${sttgs.character.score}`,
-                "",
-                sttgs.character.comment,
               ]
             ,
+          ].flat(Infinity).filter(isString),
+
+          !sttgs.outfit && sttgs.character?.description && {
+            type: ComponentType.TextDisplay,
+            content: `### Description du personnage\n` + sttgs.character.description.limit(1000),
+          },
+          
+          sttgs.arc && sttgs.arc?.description && {
+            type: ComponentType.TextDisplay,
+            content: `### Description de l'arc narratif\n` + sttgs.arc.description.limit(1000),
+          },
+          sttgs.outfit && sttgs.outfit?.description && {
+            type: ComponentType.TextDisplay,
+            content: `### Description de la tenue\n` + sttgs.outfit.description.limit(1000),
+          },
+
+          sttgs.character && [
+            !sttgs.outfit ? [
+              "### Stats du personnage",
+              `- Nombre de fois Smashé·e : ${sttgs.character.stats.smashed}`,
+              `- Nombre de fois Passé·e : ${sttgs.character.stats.passed}`,
+              `- Nombre de fois Super Smashé·e : ${sttgs.character.stats.super_smashed}`,
+              `- Nombre de fois Super Passé·e : ${sttgs.character.stats.super_passed}`,
+              `Ratio de popularité : ${sttgs.character.ratio}`,
+              `Score total : ${sttgs.character.score}`,
+            ] : [
+              "### Stats de la tenue",
+              `- Nombre de fois Smashé·e : ${sttgs.outfit.stats.smashed}`,
+              `- Nombre de fois Passé·e : ${sttgs.outfit.stats.passed}`,
+              `- Nombre de fois Super Smashé·e : ${sttgs.outfit.stats.super_smashed}`,
+              `- Nombre de fois Super Passé·e : ${sttgs.outfit.stats.super_passed}`,
+              `Ratio de popularité : ${sttgs.outfit.ratio}`,
+              `Score total : ${sttgs.outfit.score}`,
+            ],
+            "",
+            !sttgs.outfit && sttgs.character.comment,
           ].flat(Infinity).filter(isString),
 
           ...GALLERIES,
@@ -281,6 +328,78 @@ export default [
               return true;
             }
           }],
+
+
+          sttgs.character && [
+            {
+              emoji: Emotes.GetEmojiObject(Emotes.chevron.white.left.simple),
+              label: "\u200b",
+              style: ButtonStyle.Secondary,
+              disabled: sttgs.characters.list.findIndex(c => c.uid === sttgs.character.uid) < 1,
+              action: function() {
+                const index = sttgs.characters.list.findIndex(c => c.uid === sttgs.character.uid);
+                if (index > 0) {
+                  sttgs.outfits = null; sttgs.arcs = null;
+                  sttgs.outfit = null; sttgs.arc = null;
+                  
+                  sttgs.characters.page = Math.floor((index - 1) / 25);
+                  sttgs.character = sttgs.characters.list[index - 1];
+                  return true;
+                }
+                return false;
+              },
+            },
+            {
+              emoji: Emotes.GetEmojiObject(Emotes.chevron.white.right.simple),
+              label: "\u200b",
+              style: ButtonStyle.Secondary,
+              disabled: sttgs.characters.list.findIndex(c => c.uid === sttgs.character.uid) >= sttgs.characters.list.lastIndex,
+              action: function() {
+                const index = sttgs.characters.list.findIndex(c => c.uid === sttgs.character.uid);
+                if (index < sttgs.characters.list.lastIndex) {
+                  sttgs.characters.page = Math.floor((index + 1) / 25);
+                  sttgs.character = sttgs.characters.list[index + 1];
+                  return true;
+                }
+                return false;
+              },
+            },
+
+            {
+              emoji: Emotes.GetEmojiObject(Emotes.chevron.white.left.simple),
+              label: "\u200b",
+              style: ButtonStyle.Secondary,
+              disabled: !sttgs.outfit || sttgs.outfits.list.length === 0 || sttgs.outfits.list.findIndex(c => c.id === sttgs.outfit.id) < 1,
+              action: function() {
+                const index = sttgs.outfits.list.findIndex(c => c.id === sttgs.outfit.id);
+                if (index > 0) {
+                  sttgs.arc = null;
+
+                  sttgs.outfits.page = Math.floor((index - 1) / 25);
+                  sttgs.outfit = sttgs.outfits.list[index - 1];
+                  return true;
+                }
+                return false;
+              },
+            },
+            {
+              emoji: Emotes.GetEmojiObject(Emotes.chevron.white.right.simple),
+              label: "\u200b",
+              style: ButtonStyle.Secondary,
+              disabled: !sttgs.outfit || sttgs.outfits.list.length === 0 || sttgs.outfits.list.findIndex(c => c.id === sttgs.outfit.id) >= sttgs.outfits.list.lastIndex,
+              action: function() {
+                const index = sttgs.outfits.list.findIndex(c => c.id === sttgs.outfit.id);
+                if (index < sttgs.outfits.list.lastIndex) {
+                  sttgs.arc = null;
+
+                  sttgs.outfits.page = Math.floor((index + 1) / 25);
+                  sttgs.outfit = sttgs.outfits.list[index + 1];
+                  return true;
+                }
+                return false;
+              },
+            },
+          ],
           [{
             type: ComponentType.StringSelect,
             placeholder: "Selectionnez un personnage",
@@ -298,6 +417,7 @@ export default [
               return true;
             }
           }],
+
           sttgs.character && sttgs.character.outfits.length > 1 && [{
             type: ComponentType.StringSelect,
             placeholder: "Selectionnez une tenue",
@@ -315,6 +435,12 @@ export default [
               return true;
             }
           }],
+
+          !sttgs.character
+            ? sttgs.characters.pages.length > 1 && GetNavBar(sttgs.characters)
+            : !sttgs.outfit && sttgs.outfits.pages.length > 1 && GetNavBar(sttgs.outfits),
+          ,
+
           [
             {
               emoji: '👈',

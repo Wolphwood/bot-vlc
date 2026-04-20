@@ -302,16 +302,25 @@ export class Manager {
 
 				return await Models.ModelSopCharacter.find(filter, { uid: 1 }).lean();
 			},
-			rename: async (uid, name) => {
+			setName: async (uid, name) => {
 				return Models.ModelSopCharacter.findOneAndUpdate(
 					{ uid },
 					{ $set: { name } },
 					{ returnDocument: 'after' }
 				);
 			},
+			setDescription: async (uid, description) => {
+				return Models.ModelSopCharacter.findOneAndUpdate(
+					{ uid },
+					{ $set: { description: description || null } },
+					{ returnDocument: 'after' }
+				);
+			},
 			updateArc: async (uid, arc) => {
 				const setQuery = {};
-				for (const key in arc) if (key !== "id") setQuery[`arcs.$.${key}`] = arc[key];
+				const data = arc.toObject ? arc.toObject() : arc;
+				
+				for (const key in data) if (key !== "id") setQuery[`arcs.$.${key}`] = data[key];
 
 				if (Object.keys(setQuery).length > 0) {
 					const updated = await Models.ModelSopCharacter.findOneAndUpdate(
@@ -347,9 +356,9 @@ export class Manager {
 			},
 			updateOutfit: async (uid, outfit) => {
 				const setQuery = {};
-
+				
 				const data = outfit.toObject ? outfit.toObject() : outfit;
-
+				
 				for (const key in data) {
 					if (key == "id") continue;
 					
@@ -360,6 +369,8 @@ export class Manager {
 						setQuery[`outfits.$.${key}`] = data[key];
 					}
 				}
+
+				console.inspect({ '$set': setQuery });
 
 				const updated = await Models.ModelSopCharacter.findOneAndUpdate(
 					{ uid, 'outfits.id': outfit.id },
@@ -483,15 +494,41 @@ export class Manager {
 					$inc: { [`stats.passed`]: count }
 				})
 			},
-			super_smash: async (uid, count = 1) => {
+			superSmash: async (uid, count = 1) => {
 				return Models.ModelSopCharacter.updateOne({ uid }, {
 					$inc: { [`stats.super_smashed`]: count }
 				})
 			},
-			super_pass: async (uid, count = 1) => {
+			superPass: async (uid, count = 1) => {
 				return Models.ModelSopCharacter.updateOne({ uid }, {
 					$inc: { [`stats.super_passed`]: count }
 				})
+			},
+			smashOutfit: async (uid, outfitId, count = 1) => {
+				const r = await Models.ModelSopCharacter.updateOne(
+					{ uid, "outfits.id": outfitId },
+					{ $inc: { "outfits.$.stats.smashed": count } }
+				);
+
+				return r;
+			},
+			passOutfit: async (uid, outfitId, count = 1) => {
+				return Models.ModelSopCharacter.updateOne(
+					{ uid, "outfits.id": outfitId },
+					{ $inc: { "outfits.$.stats.passed": count } }
+				);
+			},
+			superSmashOutfit: async (uid, outfitId, count = 1) => {
+				return Models.ModelSopCharacter.updateOne(
+					{ uid, "outfits.id": outfitId },
+					{ $inc: { "outfits.$.stats.super_smashed": count } }
+				);
+			},
+			superPassOutfit: async (uid, outfitId, count = 1) => {
+				return Models.ModelSopCharacter.updateOne(
+					{ uid, "outfits.id": outfitId },
+					{ $inc: { "outfits.$.stats.super_passed": count } }
+				);
 			},
 		},
 	};

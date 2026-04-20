@@ -24,7 +24,6 @@ export default {
       },
     ],
   },
-
   run: async ({ client, interaction, message, args, LangToUse }) => {
     const discordElement = message || interaction;
     const member = discordElement.member;

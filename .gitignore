@@ -9,5 +9,7 @@ stats.txt
 config.js
 debug.txt
 
+$
+
 .env
 *.bat

@@ -37,6 +37,10 @@ const StringFunctions = {
     .replace(/[\u0300-\u036f]/g, "");
   },
   ucFirst: function () {
+    console.warn('String.prototype.ucFirst is deprecated, use String.prototype.toUcFirst instead');
+    return this.substring(0, 1).toUpperCase() + this.substring(1);
+  },
+  toUcFirst: function () {
     return this.substring(0, 1).toUpperCase() + this.substring(1);
   },
   similarity: function (s1, s2) {
@@ -110,6 +114,14 @@ const StringFunctions = {
   },
 };
 
+const deprecated = [
+  "String.prototype.ucFirst",
+];
+function markDeprecated(str) {
+  if (deprecated.includes(str)) return `${str} \x1B[38;5;0m\x1B[48;5;208m(deprecated)\x1B[0m`;
+  return str;
+}
+
 for (let key in StringFunctions) {
   Object.defineProperty(String.prototype, key, {
     value: StringFunctions[key],
@@ -120,13 +132,12 @@ for (let key in StringFunctions) {
 }
 
 
-
 // MARK: Register Module
 Registry.register({
   name: "String Utils",
   group: "utils",
   version: "2.0",
   details: [
-    ...Object.keys(StringFunctions).map(s => `String.prototype.${s}`),
+    ...Object.keys(StringFunctions).map(s => markDeprecated(`String.prototype.${s}`)),
   ]
 });

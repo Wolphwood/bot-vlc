@@ -296,7 +296,7 @@ export default [
 
         return {
           character: extract(sttgs.character, 'uid', 'group_slug', 'name'),
-          outfit: extract(sttgs.outfit, 'uid', 'name', 'filename', 'artist'),
+          outfit: extract(sttgs.outfit, 'id', 'name', 'filename', 'artist'),
           arc: extract(sttgs.arc, 'id', 'name'),
         }
       }
@@ -400,14 +400,26 @@ export default [
         this.data._game._end.NAVBAR.pages = Array.from(Array(Math.max(smashed.length, passed.length, super_smashed.length, super_passed.length)), (e,i) => i).chunkOf(25);
       }
     },
-    components: function() {
+    components: async function() {
       const sttgs = this.data._game._end;
       const displayOptions = this.data.displayOptions;
       
-      sttgs.smashed.raw.forEach(c => dbManager.SOP.character.smash(c.character.uid));
-      sttgs.passed.raw.forEach(c => dbManager.SOP.character.pass(c.character.uid));
-      sttgs.super_smashed.raw.forEach(c => dbManager.SOP.character.super_smash(c.character.uid));
-      sttgs.super_passed.raw.forEach(c => dbManager.SOP.character.super_pass(c.character.uid));
+      await sttgs.smashed.raw.map(async (c) => {
+        await dbManager.SOP.character.smash(c.character.uid);
+        await dbManager.SOP.character.smashOutfit(c.character.uid, c.outfit.id);
+      }).promise();
+      await sttgs.passed.raw.map(async (c) => {
+        await dbManager.SOP.character.pass(c.character.uid);
+        await dbManager.SOP.character.passOutfit(c.character.uid, c.outfit.id);
+      }).promise();
+      await sttgs.super_smashed.raw.map(async (c) => {
+        await dbManager.SOP.character.superSmash(c.character.uid);
+        await dbManager.SOP.character.superSmashOutfit(c.character.uid, c.outfit.id);
+      }).promise();
+      await sttgs.super_passed.raw.map(async (c) => {
+        await dbManager.SOP.character.superPass(c.character.uid);
+        await dbManager.SOP.character.superPassOutfit(c.character.uid, c.outfit.id);
+      }).promise();
 
       const s = sttgs.smashed.raw.length;
       const ss = sttgs.super_smashed.raw.length;
@@ -595,78 +607,6 @@ export default [
           ],
         ]
       }]
-    }
-  },
-  {
-    name: "game-final",
-    beforeUpdate: function() {
-      const sttgs = this.data._game._end;
-      
-      const safeName = this.element.member.displayName.replace(/[^\w\s]/gi, '');
-      const filename = `Recap_${safeName}_${this.uid}.txt`;
-
-      sttgs.filename = filename;
-    },
-    files: function() {
-      const sttgs = this.data._game._end;
-
-      const content = [
-        `Player: ${this.element.member.displayName}`,
-        '',
-        sttgs.super_smashed.raw.length > 0 && [
-          '✨🥵 SUPER SMASH :',
-          sttgs.super_smashed.raw.map((e,i) => `${i+1}. ${e.name} ✨`),
-          "",
-        ],
-        sttgs.super_passed.raw.length > 0 && [
-          '✨🥶 SUPER PASS :',
-          sttgs.super_passed.raw.map((e,i) => `${i+1}. ${e.name} ✨`),
-          '',
-        ],
-        '🥵 SMASH :',
-        sttgs.smashed.raw.length == 0 ? "Trop aigri•e pour smash qui que ce soit..." : sttgs.smashed.raw.map((e,i) => `${i+1}. ${e.name}`),
-        "",
-        '🥶 PASS :',
-        sttgs.passed.raw.length == 0 ? "Trop horny pour smash qui que ce soit..." : sttgs.passed.raw.map((e,i) => `${i+1}. ${e.name}`),
-        '',
-        sttgs.comment
-      ].flat(Infinity).filter(isString).join("\n");
-
-      return [
-        new AttachmentBuilder(Buffer.from(content), { name: sttgs.filename }),
-      ];
-    },
-    components: function() {
-      const sttgs = this.data._game._end;
-
-      return [{
-        type: ComponentType.Container,
-        accent_color: this.data.color.indigo,
-        components: [
-          [
-            "# 🥵 SMASH OR PASS 🥶",
-            "",
-            `**Récapitulatif des smash et pass de ${this.element.member.displayName}**`,
-          ],
-          {
-            type: ComponentType.File,
-            file: {
-              url: `attachment://${sttgs.filename}`,
-              spoiler: true,
-            }
-          },
-          [
-            {
-              label: "Supprimer le message",
-              customId: `DELETE:GUILD_MOD:${this.element.member.id}`,
-            }
-          ]
-        ]
-      }];
-    },
-    afterUpdate: function() {
-      this.deleteOnClose = false;
-      this.collector.stop('stop');
     }
   }
 ];

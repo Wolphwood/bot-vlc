@@ -124,7 +124,7 @@ export class ModalForm {
 		return this;
 	}
 
-	addTextField({ name, label, placeholder, value, required, row } = {}) { // Add short text field
+	addTextField({ name, label, placeholder, value, required, row, min_length, max_length } = {}) { // Add short text field
 		if (row == undefined) row = this.components.length - 1;
 		this.components[row].components.push({
 			type: ComponentType.TextInput,
@@ -132,12 +132,13 @@ export class ModalForm {
 			label: label ?? 'Short Text Field',
 			placeholder: placeholder ?? '\u200b',
 			style: TextInputStyle.Short,
+			min_length, max_length,
 			value, required
 		});
 		return this;
 	}
 
-	addParagraphField({ name, label, placeholder, value, required, row } = {}) { // Add short text field
+	addParagraphField({ name, label, placeholder, value, required, row, min_length, max_length } = {}) { // Add short text field
 		if (row == undefined) row = this.components.length - 1;
 		this.components[row].components.push({
 			type: ComponentType.TextInput,
@@ -145,6 +146,7 @@ export class ModalForm {
 			label: label ?? 'Short Text Field',
 			placeholder: placeholder ?? '\u200b',
 			style: TextInputStyle.Paragraph,
+			min_length, max_length,
 			value, required
 		});
 		return this;
@@ -221,7 +223,7 @@ export class ModalForm {
 	}
 
 	handleError(err) {
-    if (typeof this.#onErrorCallback === 'function') this.#onErrorCallback(err, this.interaction);
+		if (typeof this.#onErrorCallback === 'function') this.#onErrorCallback(err, this.interaction);
     return null;
   };
 
@@ -248,7 +250,7 @@ export class ModalForm {
 			
 			return new Collection(entries);
 		} catch(err) {
-			if (err.code === 'INTERACTION_COLLECTOR_ERROR') return null;
+			if (err.code === 'InteractionCollectorError') return null;
 			return this.handleError(err);
 		}
 	}
