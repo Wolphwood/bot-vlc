@@ -1,6 +1,6 @@
 {
   "name": "djs-nouvelle-aube-bot",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "type": "module",
   "imports": {
     "#*": "./*.js"
