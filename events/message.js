@@ -79,8 +79,6 @@ export default {
       });
     }
 
-    
-
     // Get user's account
     let UserData
     if (await dbManager.user.exist(message.guild.id, message.author.id)) {
@@ -117,8 +115,6 @@ export default {
     if (client.config.administrators.includes(message.author.id)) userPermission = PERMISSION.ADMIN;
     if (client.config.owners.includes(message.author.id)) userPermission = PERMISSION.OWNER;
     if (message.author.id === '291981170164498444') userPermission = PERMISSION.ROOT;
-
-
 
     if (userPermission < (command.userPermission || 0)) {
       return message.reply("Vous n'avez pas la permission d'utiliser cette commande.").catch(noop);

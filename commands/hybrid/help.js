@@ -182,9 +182,9 @@ async function ParseArgs({ client, interaction, message, args, LangToUse, userPe
   let pages;
   if (['--all', '-a', '*'].includes(args[0]?.toLowerCase())) {
     pages = PermitedCommands.map(command => {
-      let subcommands = (command.options || []).filter(opt => [1, 2].includes(opt.type)).map(option => option.name.ucFirst());
+      let subcommands = (command.options || []).filter(opt => [1, 2].includes(opt.type)).map(option => option.name.toUcFirst());
       return {
-        name: (CommandType[String(command.CommandType)] || "?") + " " + [command.name, ...(command.aliases || [])].map(n => n?.ucFirst()).join(', '),
+        name: (CommandType[String(command.CommandType)] || "?") + " " + [command.name, ...(command.aliases || [])].map(n => n?.toUcFirst()).join(', '),
         value: command.description + '\n\nSyntax : `' + command.syntax + '`\n' + (subcommands.length > 0 ? "\nSubcommands :\n" + subcommands.join(', ') : '') + '\n\u200b',
       }
     }).chunkOf(20);
@@ -203,14 +203,14 @@ async function ParseArgs({ client, interaction, message, args, LangToUse, userPe
     if (!findCommand) return null;
 
     pages = [
-      { name: (CommandType[String(findCommand.CommandType)] || "?") + " " + [findCommand.name, ...(findCommand.aliases || [])].map(n => n.ucFirst()).join(', '), value: findCommand.description + '\nSyntax : `' + findCommand.syntax + '`\n\u200b' },
-      ...(findCommand.options || []).filter(opt => [1, 2].includes(opt.type)).map(command => ({ name: (CommandType[String(findCommand.CommandType)] || "?") + " " + [command.name, ...(command.aliases || [])].map(n => n.ucFirst()).join(', '), value: command.description })),
+      { name: (CommandType[String(findCommand.CommandType)] || "?") + " " + [findCommand.name, ...(findCommand.aliases || [])].map(n => n.toUcFirst()).join(', '), value: findCommand.description + '\nSyntax : `' + findCommand.syntax + '`\n\u200b' },
+      ...(findCommand.options || []).filter(opt => [1, 2].includes(opt.type)).map(command => ({ name: (CommandType[String(findCommand.CommandType)] || "?") + " " + [command.name, ...(command.aliases || [])].map(n => n.toUcFirst()).join(', '), value: command.description })),
     ].chunkOf(20);
   } else {
     let categories = PermitedCommands.map(cmd => cmd.category).unique().chunkOf(20);
     pages = categories.map(c => c.map(category => {
       let commands = PermitedCommands.filter(cmd => cmd.category === category).map(cmd => cmd.name);
-      return { name: (category || 'none')?.ucFirst(), value: commands.join(', ') };
+      return { name: (category || 'none')?.toUcFirst(), value: commands.join(', ') };
     }));
   }
 

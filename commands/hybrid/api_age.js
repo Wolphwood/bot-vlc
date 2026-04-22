@@ -64,7 +64,7 @@ export default {
       const embed = new EmbedBuilder()
         .setColor([getRandomRangeRound(80, 255), getRandomRangeRound(80, 255), getRandomRangeRound(80, 255)])
         .addFields([{
-          name: Locale.get("command.age.embed.field.name", name.ucFirst()),
+          name: Locale.get("command.age.embed.field.name", name.toUcFirst()),
           value: Locale.get("command.age.embed.field.value", [data.count, name, data.age || '?']),
         }])
         .setFooter({ 

@@ -1,0 +1,39 @@
+import 'dotenv/config';
+import pkg from './package.json' with { type: 'json' };
+import { GatewayIntentBits, Partials } from 'discord.js';
+
+export default {
+  prefix: "w.", // this is the default prefix
+  token: process.env.DISCORD_BOT_TOKEN,
+  version: pkg.version,
+  owners: process.env.DISCORD_OWNERS.split(/[\s,;]/gmi),
+  administrators: [],
+  developmentGuild: process.env.DISCORD_DEVELOPMENT_GUILDS.split(/[\s,;]/gmi),
+  apis: {},
+  bdd: {
+    host: process.env.BDD_HOST,
+    name: process.env.BDD_DBNAME,
+    user: process.env.BDD_USER,
+    pass: process.env.BDD_PASS
+  },
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildInvites,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.DirectMessageReactions,
+    GatewayIntentBits.DirectMessageTyping,
+    GatewayIntentBits.GuildIntegrations,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildVoiceStates,
+  ],
+  partials: [
+    Partials.Message, 
+    Partials.Channel, 
+    Partials.Reaction
+  ],
+  debug: true,
+}

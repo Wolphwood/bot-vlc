@@ -115,7 +115,7 @@ export default {
           break;
         }
         case "DELETE": {
-          const password = Array.from(Array(3), () => generateEasyPassword(2)).map(s => s.ucFirst()).join('');
+          const password = Array.from(Array(3), () => generateEasyPassword(2)).map(s => s.toUcFirst()).join('');
 
           let modal = new ModalForm({ title: `Veuillez confirmez en tapant le mot de passe`, time: 60_000 })
             .addRow().addTextField({ name: 'password', label: `Veuillez taper ${password} pour confirmer`, placeholder: password })
