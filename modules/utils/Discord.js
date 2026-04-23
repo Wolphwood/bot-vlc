@@ -1,9 +1,7 @@
 import { Registry } from '#modules/Registry';
 import fs from "fs";
 import path from "path";
-import zlib from 'zlib';
 import util from 'node:util';
-import { promisify } from "util";
 import { GetRandomFunnyErrorMessage } from "./FunnyErrorMessages.js";
 
 import {
@@ -25,7 +23,6 @@ import {
 	noop,
 	isBoolean, isObject, isArray, isString, isFunction,
 	ValidateBoolean,
-	getRandomRangeRound,
 	selfnoop,
 	isDefined,
 	isNull,
@@ -270,8 +267,8 @@ export class DiscordMenu {
 
     this.pageIndex = 0;
     this.pages = isArray(options.pages) ? options.pages.map(page => ({
-        allowedMembers: [],
-        ...page
+			allowedMembers: [],
+			...page
     })) : [];
     this.#_mapPages();
 		
@@ -735,6 +732,11 @@ export class DiscordMenu {
 		this._ignoreDefaultCollectFilterOnce = true;
 	}
 
+	stop(reason = "stop") {
+		if (!this.collector) throw new Error("No active collector"); 
+		this.collector.stop(reason);
+	}
+
 	async handle({ client }) {
 		let AllCollected = [];
 		let restart = false;
@@ -823,7 +825,6 @@ export class DiscordMenu {
 
 							this.collector.on('end', async (collected, reason) => {
 								AllCollected.push(...collected.values().array());
-								await this.onEnd.apply(this, [AllCollected, reason]);
 								rs(reason);
 							});
 						} catch (err) {
@@ -847,6 +848,25 @@ export class DiscordMenu {
 						}
 					}
 				};
+
+				if (isFunction(this.onEnd)) {
+					let responded = false;
+
+					const rs = (...args) => {
+						responded = true;
+						resolve(...args);
+					}
+					const re = (...args) => {
+						responded = true;
+						reject(...args);
+					}
+
+					await this.onEnd.call(this, {
+						collected: AllCollected, resolve: rs, reject: re,
+					});
+
+					if (responded) return;
+				}
 
 				resolve(AllCollected);
 			});

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 // --- CONFIGURATION ---
-const BLACKLIST = new Set(['node_modules', '.git', 'dist', '.vscode', 'counter.js', 'count.js', 'stats.txt']);
+const BLACKLIST = new Set(['node_modules', '.git', 'dist', '.vscode', 'counter.js', 'count.js', 'stats.txt', '$', 'logs']);
 const OUTPUT_FILE = 'stats.txt';
 
 /**

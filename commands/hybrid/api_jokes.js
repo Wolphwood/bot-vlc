@@ -2,7 +2,7 @@ import { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType, Mes
 import config from "#config"
 
 import BlaguesAPI from 'blagues-api';
-import { isString } from "#modules/Utils";
+import { isString, noop } from "#modules/Utils";
 import Emotes from "#modules/Emotes";
 
 const API = "https://www.blagues-api.fr/";
@@ -110,7 +110,7 @@ export default {
     const jk = await FetchJoke(jokeOptions);
     if (!jk) return discordElement.reply(`${Emotes.crossmark} Une erreur s'est produite.`);
 
-    discordElement.reply({
+    await discordElement.reply({
       flags: [ MessageFlags.IsComponentsV2 ],
       components: [{
         type: ComponentType.Container,
@@ -149,5 +149,6 @@ export default {
       }]
     });
 
+    if (message) discordElement.delete().catch(noop);
   },
 };
