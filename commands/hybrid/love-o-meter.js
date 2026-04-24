@@ -324,7 +324,7 @@ export default {
             type: ComponentType.TextDisplay,
             content: [
               `# ${member1} × ${member2}`,
-              member1.id === member2.id ? `C'est important de s'aimer soit-même <3` : loveMessages.find(m => m.check(data.value)).contents.getRandomElement()
+              member1.id === member2.id ? `## C'est important de s'aimer soit-même <3` : '## ' + loveMessages.find(m => m.check(data.value)).contents.getRandomElement()
             ].join('\n')
           },
           {
