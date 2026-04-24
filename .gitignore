@@ -1,6 +1,7 @@
 node_modules
 logs/**
 assets/sop/**
+assets/8ball/answers/**
 
 package-lock.json
 
@@ -8,6 +9,8 @@ stats.txt
 
 config.js
 debug.txt
+
+$
 
 .env
 *.bat

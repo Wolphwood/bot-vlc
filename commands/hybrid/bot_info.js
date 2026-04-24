@@ -41,7 +41,7 @@ export default {
           name: Locale.get("command.botinfo.embed.field.server.title"),
           value: [
             `CPU Usage : ${cpu_usage}%`,
-            `Memory Usage : ${mem_usage.value + mem_usage.format.ucFirst()} / ${mem_total.value + mem_total.format.ucFirst()} (${mem_usage_percent}%)`,
+            `Memory Usage : ${mem_usage.value + mem_usage.format.toUcFirst()} / ${mem_total.value + mem_total.format.toUcFirst()} (${mem_usage_percent}%)`,
             `Average Load : ${os.loadavg(1)}, ${os.loadavg(5)}, ${os.loadavg(15)}`,
             `System Uptime : ${SecToStr(Math.round(os.sysUptime()))}`,
             `Process Uptime : ${SecToStr(Math.round(os.processUptime()))}`,

@@ -1,13 +1,16 @@
 {
   "name": "djs-nouvelle-aube-bot",
-  "version": "2.1.1",
+  "version": "2.2.4",
   "type": "module",
   "imports": {
     "#*": "./*.js"
   },
   "dependencies": {
+    "blagues-api": "^2.1.1",
+    "canvas": "^3.2.3",
     "discord.js": "^14.25.1",
     "dotenv": "^17.3.1",
+    "double-metaphone": "^2.0.1",
     "mongoose": "^9.2.3",
     "sharp": "^0.34.5"
   }

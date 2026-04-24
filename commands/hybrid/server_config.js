@@ -118,7 +118,7 @@ async function OpenConfigMenu({ client, discordElement, GuildData, UserData, Lan
                 : 'unknow';
 
             return [{
-              title: Locales.get("command.config.command.embed.title", [this.data.selectedCommand.ucFirst()]),
+              title: Locales.get("command.config.command.embed.title", [this.data.selectedCommand.toUcFirst()]),
               fields: [
                 { name: Locales.get("command.config.command.embed.field.cooldown.name"), value: Locales.get("command.config.command.embed.field.cooldown.value", [(command.cooldown ?? 10)]) },
                 { name: Locales.get("command.config.command.embed.field.channel." + langKey + ".name"), value: command.channelConfig[langKey]?.map(c => `<#${c}>`).join(' ') || Locales.get("command.config.command.embed.field.channel." + langKey + ".default.value") },

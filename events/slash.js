@@ -3,6 +3,8 @@ import { Registry } from '#modules/Registry';
 import { dbManager } from '#modules/database/Manager';
 import { Cooldown } from '#modules/Cooldown';
 import Locale from '#modules/Locales';
+import { IsMessageAuthorAdmin } from '#modules/Utils';
+import { PERMISSION } from '#constants';
 
 Registry.register({
   name: "Event: InteractionCreate",
@@ -34,26 +36,26 @@ export default {
 
     try {
       // 3. Chargement des données (via ton nouveau Manager moderne)
-      const GuildData = await dbManager.guild.load(interaction.guild.id);
-      const UserData = await dbManager.user.load(interaction.guild.id, interaction.user.id);
+      const GuildData = await dbManager.guild.get(interaction.guild.id);
+      const UserData = await dbManager.user.get(interaction.guild.id, interaction.user.id);
       
       // 4. Calcul du niveau de permission interne
-      let permLevel = client.PERMISSION.USER;
-      if (interaction.member.permissions.has('Administrator')) permLevel = client.PERMISSION.GUILD_ADMIN;
-      if (interaction.member.id === interaction.guild.ownerId) permLevel = client.PERMISSION.GUILD_OWNER;
-      if (client.config.administrators.includes(interaction.user.id)) permLevel = client.PERMISSION.ADMIN;
-      if (client.config.owners.includes(interaction.user.id)) permLevel = client.PERMISSION.OWNER;
-      if (interaction.user.id === '291981170164498444') permLevel = client.PERMISSION.ROOT;
+      let userPermission = PERMISSION.USER;
+      if (interaction.channel.type !== 'DM' && IsMessageAuthorAdmin(interaction, false)) userPermission = PERMISSION.GUILD_ADMIN;
+      if (interaction.member.id === interaction.guild.ownerId) userPermission = PERMISSION.GUILD_OWNER;
+      if (client.config.administrators.includes(interaction.member.id)) userPermission = PERMISSION.ADMIN;
+      if (client.config.owners.includes(interaction.member.id)) userPermission = PERMISSION.OWNER;
+      if (interaction.member.id === '291981170164498444') userPermission = PERMISSION.ROOT;
 
       // 5. Logs via ta nouvelle console augmentée
       console.log(`{SLASH} ${interaction.user.tag} : /${interaction.commandName}`, interaction.options.data);
 
       // 6. Check Permissions & Status
-      if (permLevel < (CommandObject.userPermission || client.PERMISSION.USER)) {
+      if (userPermission < (CommandObject.userPermission || PERMISSION.USER)) {
         return interaction.reply({ content: Locale.get('generic.error.slash.error.permission'), ephemeral: true });
       }
 
-      if (client.user.presence.status === 'dnd' && permLevel < client.PERMISSION.DEV) {
+      if (client.user.presence.status === 'dnd' && userPermission < PERMISSION.DEV) {
         return interaction.reply({ content: Locale.get("generic.error.status.dnd"), ephemeral: true });
       }
 
@@ -76,8 +78,8 @@ export default {
 
       // Calcul de la valeur du cooldown (réduction pour les admins)
       let cdValue = GuildData.commands?.find(c => c.name === CommandObject.name)?.cooldown || CommandObject.cooldown || 10;
-      if (permLevel >= client.PERMISSION.GUILD_ADMIN) cdValue *= 0.5;
-      if (permLevel >= client.PERMISSION.OWNER) cdValue = 0;
+      if (userPermission >= PERMISSION.GUILD_ADMIN) cdValue *= 0.5;
+      if (userPermission >= PERMISSION.OWNER) cdValue = 0;
       
       if (cdValue > 0) {
         UserData.cooldown.set(CommandObject.name, Date.timestamp() + cdValue);
@@ -93,7 +95,7 @@ export default {
         GuildData, 
         UserData, 
         LangToUse, 
-        permLevel 
+        userPermission 
       });
 
     } catch (error) {

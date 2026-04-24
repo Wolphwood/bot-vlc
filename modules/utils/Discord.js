@@ -1,9 +1,7 @@
 import { Registry } from '#modules/Registry';
 import fs from "fs";
 import path from "path";
-import zlib from 'zlib';
 import util from 'node:util';
-import { promisify } from "util";
 import { GetRandomFunnyErrorMessage } from "./FunnyErrorMessages.js";
 
 import {
@@ -25,10 +23,10 @@ import {
 	noop,
 	isBoolean, isObject, isArray, isString, isFunction,
 	ValidateBoolean,
-	getRandomRangeRound,
 	selfnoop,
 	isDefined,
 	isNull,
+	ValidateObject,
 } from "#modules/Utils";
 import { dbManager } from "#modules/database/Manager";
 
@@ -47,6 +45,42 @@ Registry.register({
 		"DiscordMenu",
   ]
 });
+
+// MARK: ResolveMember
+export async function ResolveMember(guild, query) {
+  if (!query || !guild) return null;
+
+  
+  const mentionMatch = query.match(/^<@&?!?(\d+)>$/);
+  const searchId = mentionMatch ? mentionMatch[1] : query;
+
+  // Try to get by id (with 10s timeout)
+	const member = await Promise.race([
+		guild.members.fetch({ user: searchId, force: false }),
+		new Promise((_, reject) => 
+			setTimeout(() => reject(new Error("Timeout")), 10000)
+		),
+	]).catch(noop);
+	if (member) return member;
+
+
+  const foundMembers = await guild.members.fetch({ query, limit: 1 });
+  const firstFound = foundMembers.first();
+
+  if (firstFound) return firstFound;
+
+  const lowercased = query.toLowerCase().simplify();
+
+  // 4. Fallback sur le cache pour la recherche partielle personnalisée (.simplify)
+  return guild.members.cache.find(m => {
+    const nickname = m.nickname?.toLowerCase().simplify().includes(lowercased);
+    const username = m.user.username.toLowerCase().simplify().includes(lowercased);
+    const displayName = m.displayName.toLowerCase().simplify().includes(lowercased);
+
+    return nickname || username || displayName;
+  }) || null;
+}
+
 
 // MARK: IsMessageAuthorAdmin
 export function IsMessageAuthorAdmin(element) {
@@ -124,7 +158,7 @@ export class ModalForm {
 		return this;
 	}
 
-	addTextField({ name, label, placeholder, value, required, row } = {}) { // Add short text field
+	addTextField({ name, label, placeholder, value, required, row, min_length, max_length } = {}) { // Add short text field
 		if (row == undefined) row = this.components.length - 1;
 		this.components[row].components.push({
 			type: ComponentType.TextInput,
@@ -132,12 +166,13 @@ export class ModalForm {
 			label: label ?? 'Short Text Field',
 			placeholder: placeholder ?? '\u200b',
 			style: TextInputStyle.Short,
+			min_length, max_length,
 			value, required
 		});
 		return this;
 	}
 
-	addParagraphField({ name, label, placeholder, value, required, row } = {}) { // Add short text field
+	addParagraphField({ name, label, placeholder, value, required, row, min_length, max_length } = {}) { // Add short text field
 		if (row == undefined) row = this.components.length - 1;
 		this.components[row].components.push({
 			type: ComponentType.TextInput,
@@ -145,6 +180,7 @@ export class ModalForm {
 			label: label ?? 'Short Text Field',
 			placeholder: placeholder ?? '\u200b',
 			style: TextInputStyle.Paragraph,
+			min_length, max_length,
 			value, required
 		});
 		return this;
@@ -221,7 +257,7 @@ export class ModalForm {
 	}
 
 	handleError(err) {
-    if (typeof this.#onErrorCallback === 'function') this.#onErrorCallback(err, this.interaction);
+		if (typeof this.#onErrorCallback === 'function') this.#onErrorCallback(err, this.interaction);
     return null;
   };
 
@@ -248,7 +284,7 @@ export class ModalForm {
 			
 			return new Collection(entries);
 		} catch(err) {
-			if (err.code === 'INTERACTION_COLLECTOR_ERROR') return null;
+			if (err.code === 'InteractionCollectorError') return null;
 			return this.handleError(err);
 		}
 	}
@@ -267,13 +303,14 @@ export class DiscordMenu {
 
     this.pageIndex = 0;
     this.pages = isArray(options.pages) ? options.pages.map(page => ({
-        allowedMembers: [],
-        ...page
+			allowedMembers: [],
+			...page
     })) : [];
     this.#_mapPages();
 		
 		this.ephemeral = ValidateBoolean(options.ephemeral, false);
 		this.useComponentsV2 = ValidateBoolean(options.v2, false);
+		this.sendOptions = ValidateObject(options.sendOptions, {});
 		
 		this.flags = [];
 		if (this.ephemeral) this.flags.push(MessageFlags.Ephemeral);
@@ -481,7 +518,6 @@ export class DiscordMenu {
 		if (!baseElements) return [];
 
 		const finalComponents = await Promise.all(baseElements.filter(e => isString(e) || NonEmpty(e)).map(processElement));
-		// console.inspect(finalComponents);
 
 		return finalComponents.flat().filter(selfnoop);
 	}
@@ -646,7 +682,7 @@ export class DiscordMenu {
 		]);
 
 		const flags = this.flags;
-		return this.useComponentsV2 ? { components, files, flags } : { content, components, embeds, files, flags };
+		return this.useComponentsV2 ? { ...this.sendOptions, components, files, flags } : { ...this.sendOptions, content, components, embeds, files, flags };
 	}
 
 	async runHook(context, hookName, args = {}) {
@@ -730,6 +766,11 @@ export class DiscordMenu {
 	}
 	ignoreDefaultCollectFilterOnce() {
 		this._ignoreDefaultCollectFilterOnce = true;
+	}
+
+	stop(reason = "stop") {
+		if (!this.collector) throw new Error("No active collector"); 
+		this.collector.stop(reason);
 	}
 
 	async handle({ client }) {
@@ -820,7 +861,6 @@ export class DiscordMenu {
 
 							this.collector.on('end', async (collected, reason) => {
 								AllCollected.push(...collected.values().array());
-								await this.onEnd.apply(this, [AllCollected, reason]);
 								rs(reason);
 							});
 						} catch (err) {
@@ -844,6 +884,25 @@ export class DiscordMenu {
 						}
 					}
 				};
+
+				if (isFunction(this.onEnd)) {
+					let responded = false;
+
+					const rs = (...args) => {
+						responded = true;
+						resolve(...args);
+					}
+					const re = (...args) => {
+						responded = true;
+						reject(...args);
+					}
+
+					await this.onEnd.call(this, {
+						collected: AllCollected, resolve: rs, reject: re,
+					});
+
+					if (responded) return;
+				}
 
 				resolve(AllCollected);
 			});

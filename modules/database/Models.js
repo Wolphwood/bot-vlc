@@ -65,11 +65,13 @@ export const ModelVenturePlayer = model('venture_player', new Schema({
 export const ModelSopCharacter = model('sop_character', new Schema({
 	uid: {type: String, unique: true, required: true},
 	group_slug: { type: String, required: true },
-  name: {type: String, default: 'John Doe'},
+  name: { type: String, default: 'John Doe' },
+  description: { type: String, default: null },
 	arcs: {
     type: [ {
       id: { type: String, required: true },
       name: { type: String, required: true },
+      description: { type: String, default: null },
     } ],
     default: []
   },
@@ -101,11 +103,18 @@ export const ModelSopCharacter = model('sop_character', new Schema({
       id: { type: String, required: true },
 			name: { type: String, required: true },
       arc: { type: String, default: null },
+      description: { type: String, default: null },
 			artist: {
         name: { type: String, default: null },
         link: { type: String, default: null },
       },
 			filename: { type: String, default: null },
+      stats: {
+        smashed: { type: Number, default: 0 },
+        super_smashed: { type: Number, default: 0 },
+        passed: { type: Number, default: 0 },
+        super_passed: { type: Number, default: 0 },
+      },
 		}],
 		default: []
 	}

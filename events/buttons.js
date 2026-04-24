@@ -59,7 +59,8 @@ export default {
     // }
 
     let isForceAllowed = false;
-    if (extra[0] === interaction.member.id) {
+    const extra0 = extra[0].split('_');
+    if (extra0.includes(interaction.member.id) || interaction.member.roles.cache.keys().some(id => extra0.includes(id))) {
       isForceAllowed = true;
       extra.shift();
     }
@@ -115,7 +116,7 @@ export default {
           break;
         }
         case "DELETE": {
-          const password = Array.from(Array(3), () => generateEasyPassword(2)).map(s => s.ucFirst()).join('');
+          const password = Array.from(Array(3), () => generateEasyPassword(2)).map(s => s.toUcFirst()).join('');
 
           let modal = new ModalForm({ title: `Veuillez confirmez en tapant le mot de passe`, time: 60_000 })
             .addRow().addTextField({ name: 'password', label: `Veuillez taper ${password} pour confirmer`, placeholder: password })
