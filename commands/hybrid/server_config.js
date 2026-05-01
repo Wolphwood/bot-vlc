@@ -75,8 +75,8 @@ async function OpenConfigMenu({ client, discordElement, GuildData, UserData, Lan
           title: "Config menu home",
           description: "description",
           fields: [
-            { name: "• " + Locales.get("command.config.button.commands"), value: "Options liées aux commandes." },
-            { name: "• " + Locales.get("command.config.button.server"), value: "Daily, Points, Lang, Staff" },
+            { name: "· " + Locales.get("command.config.button.commands"), value: "Options liées aux commandes." },
+            { name: "· " + Locales.get("command.config.button.server"), value: "Daily, Points, Lang, Staff" },
           ],
           color: 0x5865F2,
           footer: {

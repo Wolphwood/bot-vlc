@@ -266,7 +266,7 @@
     "command.botinfo.embed.field.api.title":"Liste des APIs utilisées",
     "command.botinfo.embed.field.contributor.title": "Contributeurs à la créations du bot",
     "command.botinfo.embed.field.contributor.value": [
-        "• Wolphwood : Développeur [[🌴]](https://linktr.ee/wolphwood \"Linktree\") [[🌐]](http://wolphwood.ovh/ \"Site web\")"
+        "· Wolphwood : Développeur [[🌴]](https://linktr.ee/wolphwood \"Linktree\") [[🌐]](http://wolphwood.ovh/ \"Site web\")"
     ],
     "command.botinfo.embed.field.server.title": "Informations serveur",
 
@@ -304,7 +304,7 @@
     "commandinfo.permission.option.channel.description": "Le channel dans lequel le test sera effectuer.",
     "commandinfo.permission.option.user.description": "L'utilisateur sur lequel le test sera effectuer.",
     
-    "command.daily.description":"Claim tes points journaliers.\nPour les boosteur•euses, le cooldown est divisé par deux!",
+    "command.daily.description":"Claim tes points journaliers.\nPour les boosteur·euses, le cooldown est divisé par deux!",
     "command.daily.sucess":"Félicitation <@%0a>, tu viens de remporter %1a point(s)!",
 
 

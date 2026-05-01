@@ -1,8 +1,10 @@
 import { SOP_PERMISSION } from "#constants";
 import { ButtonStyle, ComponentType } from "discord.js";
 
-import PageGroup from "./settings/group.js"
-import PageCharacter from "./settings/character.js"
+import { uncachedImport } from "#modules/Utils";
+
+const PageGroup = await uncachedImport("./settings/group.js").then(m => m.default);
+const PageCharacter = await uncachedImport("./settings/character.js").then(m => m.default);
 
 export default [
   {

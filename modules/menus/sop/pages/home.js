@@ -37,10 +37,9 @@ export default [
               },
               {
                 emoji: "🥇",
-                label: "Tops",
-                disabled: true,
+                label: "Tops & Flops",
                 style: ButtonStyle.Primary,
-                action: "goto:tops"
+                action: "goto:tops-select"
               },
             ],
             [

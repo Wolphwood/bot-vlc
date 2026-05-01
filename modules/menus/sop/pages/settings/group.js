@@ -3,7 +3,7 @@ import { dbManager } from "#modules/database/Manager";
 import { ModalForm, isString } from "#modules/Utils";
 import { ButtonStyle, Collection, ComponentType } from "discord.js";
 
-import { GetNavBar, NumerotedListToColumns } from "../../index.js";
+import { GetNavBar, NumerotedListToColumns } from "../../shared.js";
 
 export default [
   {
@@ -17,7 +17,7 @@ export default [
       const displayOptions = this.data.displayOptions;
       const hasMultiplePages = sttgs.pages.length > 1;
 
-      let deleteText = ['Supprimer','Sûr ?', 'CERTAIN•E ?!'][sttgs.delete];
+      let deleteText = ['Supprimer','Sûr ?', 'CERTAIN·E ?!'][sttgs.delete];
       let deleteStyle = [ButtonStyle.Secondary, ButtonStyle.Primary, ButtonStyle.Danger][sttgs.delete];
 
       return [{
@@ -203,7 +203,7 @@ export default [
               (sttgs.role.pages[sttgs.role.page]?.map(formatEmbedText)?.join('\n') || "Rien ici").limit(1024)
             ],
             sttgs.mode == 'user' && [
-              "## Permissions d'utilisateur•ice",
+              "## Permissions d'utilisateur·ice",
               (sttgs.user.pages[sttgs.user.page]?.map(formatEmbedText)?.join('\n') || "Rien ici").limit(1024)
             ],
             sttgs.mode == 'settings' && [
@@ -303,7 +303,7 @@ export default [
               }
             },
             {
-              label: ["Supprimer", 'Sûr ?', 'CERTAIN•E ??'][sttgs.delete],
+              label: ["Supprimer", 'Sûr ?', 'CERTAIN·E ??'][sttgs.delete],
               style: [ButtonStyle.Secondary, ButtonStyle.Primary, ButtonStyle.Danger][sttgs.delete],
               disabled: sttgs.permission == null,
               action: async () => {

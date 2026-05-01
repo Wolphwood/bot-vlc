@@ -1,7 +1,7 @@
 import { SOP_PERMISSION } from "#constants";
 import { isString, selfnoop, ValidateArray } from "#modules/Utils";
 import { ButtonStyle, ComponentType } from "discord.js"
-import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName, SortByReversedName, SortByRatio, SortByReversedRatio } from "../index.js";
+import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName, SortByReversedName, SortByRatio, SortByReversedRatio } from "../shared.js";
 import { dbManager } from "#modules/database/Manager";
 import Emotes from "#modules/Emotes";
 

@@ -206,4 +206,5 @@ export default {
 	},
 
 	pshitpshit: "<:pshitpshit:1318634963918258317>",
+	notlikethis: "<:notlikethis:1499722823697174712>",
 }

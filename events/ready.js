@@ -1,4 +1,4 @@
-import { Events } from 'discord.js';
+import { ApplicationCommandType, Events } from 'discord.js';
 import { Registry } from '#modules/Registry';
 
 Registry.register({
@@ -13,17 +13,29 @@ export default {
   run: async ({ client }) => {
     console.log(`Enregistrement des commandes pour ${client.user.tag}...`);
 
-    const formatCommand = (cmd) => ({
-      ...cmd.discord,
-      name: cmd.name.toLowerCase().simplify().trim(),
-      description: cmd.description
-    });
+    const formatCommand = (cmd) => {
+      const cmdconfig = Array.isArray(cmd.discord) ? cmd.discord : [cmd.discord];
+
+      return cmdconfig.map(conf => {
+        const converted = {
+          ...conf,
+          name: cmd.name.toLowerCase().simplify().trim(),
+          description: cmd.description
+        };
+        
+        if (converted.type === ApplicationCommandType.Message) {
+          delete converted.description;
+        }
+        
+        return converted;
+      });
+    };
 
     try {
       const fullCommands = [
         ...client.slashCommands.values(),
         ...client.hybridCommands.values()
-      ].map(formatCommand);
+      ].flatMap(formatCommand);
 
       await client.application.commands.set(fullCommands);
       

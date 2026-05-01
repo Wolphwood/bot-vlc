@@ -1,11 +1,11 @@
 import { ApplicationCommandType, ApplicationCommandOptionType, Message } from "discord.js";
 
-import { noop } from "#modules/Utils";
+import { noop, uncachedImport } from "#modules/Utils";
 import { PERMISSION } from "#constants";
 import { Locales } from "#modules/Locales"
 import Emotes from "#modules/Emotes"
 
-import { GameSmashOrPass } from "#modules/menus/sop/index"
+const { GameSmashOrPass } = await uncachedImport("#modules/menus/sop/index");
 
 export default {
   name: "SmashOrPass",

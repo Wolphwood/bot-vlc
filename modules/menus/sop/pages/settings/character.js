@@ -4,7 +4,7 @@ import Emotes from "#modules/Emotes";
 import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, isString, ValidateArray, selfnoop, deleteAfter } from "#modules/Utils";
 import { ButtonStyle, ComponentType } from "discord.js";
 
-import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName } from "../../index.js";
+import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName } from "../../shared.js";
 
 export default [
   {
@@ -142,7 +142,7 @@ export default [
               action: "goto:settings-character-edit",
             },
             {
-              label: ["Supprimer le personnage", 'Sûr ?', 'CERTAIN•E ??'][sttgs.chr.delete],
+              label: ["Supprimer le personnage", 'Sûr ?', 'CERTAIN·E ??'][sttgs.chr.delete],
               style: [ButtonStyle.Secondary, ButtonStyle.Primary, ButtonStyle.Danger][sttgs.chr.delete],
               disabled: !sttgs.character,
               action: function() {
@@ -324,7 +324,7 @@ export default [
               },
             },
             {
-              label: ["Supprimer l'arc", 'Sûr ?', 'CERTAIN•E ??'][sttgs.arcs.delete],
+              label: ["Supprimer l'arc", 'Sûr ?', 'CERTAIN·E ??'][sttgs.arcs.delete],
               style: [ButtonStyle.Secondary, ButtonStyle.Primary, ButtonStyle.Danger][sttgs.arcs.delete],
               disabled: !sttgs.arc,
               action: async function() {
@@ -515,7 +515,7 @@ export default [
               }
             },
             {
-              label: ["Supprimer l'outfit", 'Sûr ?', 'CERTAIN•E ??'][sttgs.outfits.delete],
+              label: ["Supprimer l'outfit", 'Sûr ?', 'CERTAIN·E ??'][sttgs.outfits.delete],
               style: [ButtonStyle.Secondary, ButtonStyle.Primary, ButtonStyle.Danger][sttgs.outfits.delete],
               disabled: !sttgs.outfit,
               action: async function() {

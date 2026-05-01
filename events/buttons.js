@@ -59,7 +59,7 @@ export default {
     // }
 
     let isForceAllowed = false;
-    const extra0 = extra[0].split('_');
+    const extra0 = extra[0]?.split('_') || [];
     if (extra0.includes(interaction.member.id) || interaction.member.roles.cache.keys().some(id => extra0.includes(id))) {
       isForceAllowed = true;
       extra.shift();

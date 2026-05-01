@@ -4,7 +4,7 @@ import { Locales } from "#modules/Locales"
 import { gzipSync } from 'zlib';
 
 import { Cooldown } from "#modules/Cooldown";
-import { GetCachedOutfitAttachment, GetNavBar, NumerotedListToColumns, SortByName } from "../index.js";
+import { GetCachedOutfitAttachment, GetNavBar, NumerotedListToColumns, SortByName } from "../shared.js";
 import { isDefined, isNull, isString, ModalForm, selfnoop as sn, ValidateArray } from "#modules/Utils";
 import { dbManager } from "#modules/database/Manager";
 import { SOP_PERMISSION } from "#constants";
@@ -174,7 +174,7 @@ export default [
             {
               label: "Lancer la partie",
               style: ButtonStyle.Success,
-              disabled: !sttgs.sort || !sttgs.count,
+              disabled: !sttgs.sort || !sttgs.count || !sttgs.characters.length,
               action: async function() {
                 
                 let chrs = await dbManager.SOP.character.getSorted({
@@ -318,7 +318,7 @@ export default [
             '',
             `\`[${sttgs.character.uid}]\` créer par <@${sttgs.character.rules.owner}>`,
             '',
-            `${sttgs.smashed.length + sttgs.super_smashed.length} Smash / ${sttgs.passed.length + sttgs.super_passed.length} Pass • ${this.element.member.displayName}`
+            `${sttgs.smashed.length + sttgs.super_smashed.length} Smash / ${sttgs.passed.length + sttgs.super_passed.length} Pass · ${this.element.member.displayName}`
           ].flat().filter(isString),
           ...GALLERIES,
           [
@@ -471,7 +471,7 @@ export default [
             "**Récapitulatif de tes smash / pass**",
             '',
             "## SMASH 🔥 🥵",
-            s > 0 ? ValidateArray(sttgs.smashed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.smashed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn) : '```Tu es trop aigri•e pour avoir smash qui que ce soit```',
+            s > 0 ? ValidateArray(sttgs.smashed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.smashed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn) : '```Tu es trop aigri·e pour avoir smash qui que ce soit```',
             '',
             "## PASS ❄ 🥶",
             p > 0 ? ValidateArray(sttgs.passed.pages[sttgs.NAVBAR.page], []).length === 0 ? '```Rien sur cette page```' : NumerotedListToColumns(sttgs.passed.pages[sttgs.NAVBAR.page].map((e,i) => `${(i+1)+(sttgs.NAVBAR.page*25)}. ${e.character.name}`), displayOptions.numberOfColumn) : '```Tu es trop horny pour avoir pass qui que ce soit```',
@@ -488,6 +488,10 @@ export default [
             ],
             sttgs.comment,
             '',
+            sttgs.user_comment && [
+              `Commentaire de ${this.element.member.displayName} :`,
+              sttgs.user_comment
+            ],
             `${sttgs.smashed.raw.length + sttgs.super_smashed.raw.length} Smash / ${sttgs.passed.raw.length + sttgs.super_passed.raw.length} Pass`,
             sttgs.NAVBAR.pages.length > 1 && `-# Vitesse de navigation : ±${[1,5,10][sttgs.NAVBAR.navspeed]} | Page ${sttgs.NAVBAR.page+1}/${Math.max(1,sttgs.NAVBAR.pages.length)}`,
           ].flat().filter(isString),
@@ -513,6 +517,23 @@ export default [
               }
             },
             {
+              emoji: { name: "📝" },
+              label: "Commenter",
+              action: async function({ interaction }) {
+                let modal = new ModalForm({ title: "Commentaire de la partie", time: 120_000 })
+                  .addRow().addParagraphField({ name: 'comment', label: "Laisse vide pour supprimer", placeholder: "Laisse vide pour supprimer", required: false, max_length: 1000 })
+                ;
+                
+                let result = await modal.setInteraction(interaction).onError((e) => this.handleError(e)).popup();
+                if (!result) return false;
+
+                sttgs.user_comment = result.get('comment');
+                if (!sttgs.user_comment) delete sttgs.user_comment;
+                
+                return true
+              }
+            },
+            {
               emoji: { name: "📨" },
               label: "Publier",
               disabled: sttgs.sent,
@@ -525,9 +546,9 @@ export default [
 
                 const files = () => {
                   const { super_passed, super_smashed, passed, smashed } = this.data._game._run;
-                  const { comment } = this.data._game._end;
+                  const { comment, user_comment } = this.data._game._end;
 
-                  const dataString = JSON.stringify({ player: this.element.member.displayName, super_passed, super_smashed, passed, smashed, comment });
+                  const dataString = JSON.stringify({ player: this.element.member.displayName, super_passed, super_smashed, passed, smashed, comment, user_comment });
                   const compressedData = gzipSync(dataString);
 
                   function getname({ character, outfit, arc } = {}) {
@@ -552,12 +573,17 @@ export default [
                       '',
                     ],
                     '🥵 SMASH :',
-                    sttgs.smashed.raw.length == 0 ? "Trop aigri•e pour smash qui que ce soit..." : sttgs.smashed.raw.map((e,i) => `${i+1}. ${getname(e)}`),
+                    sttgs.smashed.raw.length == 0 ? "Trop aigri·e pour smash qui que ce soit..." : sttgs.smashed.raw.map((e,i) => `${i+1}. ${getname(e)}`),
                     "",
                     '🥶 PASS :',
                     sttgs.passed.raw.length == 0 ? "Trop horny pour smash qui que ce soit..." : sttgs.passed.raw.map((e,i) => `${i+1}. ${getname(e)}`),
                     '',
-                    sttgs.comment
+                    sttgs.comment,
+                    sttgs.user_comment && [
+                      '',
+                      `Commentaire de ${this.element.member.displayName} :`,
+                      sttgs.user_comment
+                    ], 
                   ].flat(Infinity).filter(isString).join("\n");
 
                   return [
@@ -575,7 +601,8 @@ export default [
                         "# 🥵 SMASH OR PASS 🥶",
                         "",
                         `**Récapitulatif des smash et pass de ${this.element.member.displayName}**`,
-                      ],
+                        sttgs.user_comment && [ "", `Commentaire de ${this.element.member.displayName} :`, sttgs.user_comment ],
+                      ].flat().filter(isString),
                       {
                         type: ComponentType.File,
                         file: {

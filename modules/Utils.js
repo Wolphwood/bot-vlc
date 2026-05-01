@@ -11,6 +11,8 @@ export * from './utils/Random.js';
 export * from './utils/Set.js';
 export * from './utils/String.js';
 export * from './utils/Discord.js';
+export * from './utils/DiscordMenu.js';
+export * from './utils/DiscordModalForm.js';
 export * from './utils/FunnyErrorMessages.js';
 
 // 2. Si tu veux quand même garder les Namespaces (ex: Utils.Math.clamp)
@@ -26,6 +28,8 @@ import * as RandomUtils from './utils/Random.js';
 import * as SetUtils from './utils/Set.js';
 import * as StringUtils from './utils/String.js';
 import * as DiscordUtils from './utils/Discord.js';
+import * as DiscordMenuUtils from './utils/DiscordMenu.js';
+import * as DiscordModalFormUtils from './utils/DiscordModalForm.js';
 import * as FunnyErrorMessagesUtils from './utils/FunnyErrorMessages.js';
 
 export {
@@ -58,5 +62,7 @@ export default {
   ...SetUtils,
   ...StringUtils,
   ...DiscordUtils,
+  ...DiscordMenuUtils,
+  ...DiscordModalFormUtils,
   ...FunnyErrorMessagesUtils,
 };

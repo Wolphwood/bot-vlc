@@ -29,7 +29,7 @@ export default {
       .addFields([
         {
           name: Locale.get("command.botinfo.embed.field.api.title") + emptyString.slice(0, 10),
-          value: client.APIs.map(api => `• [${api.name}](${api.link})`).join('\n') || 'None',
+          value: client.APIs.map(api => `· [${api.name}](${api.link})`).join('\n') || 'None',
           inline: true,
         },
         {

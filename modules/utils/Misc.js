@@ -1,8 +1,8 @@
+import sharp from 'sharp';
+
+import { pathToFileURL, fileURLToPath } from 'url';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
-import { Readable } from 'stream';
-import { finished } from 'stream/promises';
 
 import { Registry } from '#modules/Registry';
 Registry.register({
@@ -36,6 +36,7 @@ Registry.register({
     'ConvertUrlToBase64',
     'deleteAfter',
     'generateEasyPassword',
+    'uncachedImport',
   ]
 });
 
@@ -218,4 +219,36 @@ export function generateEasyPassword(length = 3) {
   }
 
   return password;
+}
+
+export async function uncachedImport(filePath) {
+  try {
+    let absolutePath;
+
+    if (filePath.startsWith('#')) {
+      const cleanAlias = filePath.replace('#', '');
+      absolutePath = path.resolve(process.cwd(), cleanAlias);
+    } else {
+      const stack = new Error().stack;
+      const callerLine = stack.split('\n')[2];
+      const startIdx = callerLine.indexOf('file:///');
+      const endIdx = callerLine.lastIndexOf(':');
+      const secondEndIdx = callerLine.lastIndexOf(':', endIdx - 1);
+      const callerFileUrl = callerLine.slice(startIdx, secondEndIdx).trim();
+      
+      absolutePath = path.resolve(path.dirname(fileURLToPath(callerFileUrl)), filePath);
+    }
+
+    if (!absolutePath.endsWith('.js')) {
+      absolutePath += '.js';
+    }
+
+    const fileUrl = pathToFileURL(absolutePath);
+    fileUrl.search = `?v=${Date.now()}`;
+
+    return await import(fileUrl.href);
+  } catch (error) {
+    console.error(`[UncachedImport] Échec sur : ${filePath}`);
+    throw error;
+  }
 }

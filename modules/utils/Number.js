@@ -25,6 +25,18 @@ const NumberFunctions = {
     newValue += suffixes[suffixNum];
     return newValue;
   },
+  floor(precision = 0) {
+    const pow = Math.pow(10, precision);
+    return Math.floor(this * pow) / pow;
+  },
+  round(precision = 0) {
+    const pow = Math.pow(10, precision);
+    return Math.round(this * pow) / pow;
+  },
+  ceil(precision = 0) {
+    const pow = Math.pow(10, precision);
+    return Math.ceil(this * pow) / pow;
+  },
 };
 
 Number.parseAbbreviatedNumber = function (str = '') {
