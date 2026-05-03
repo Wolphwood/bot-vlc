@@ -45,7 +45,7 @@ export default {
       },
     ],
   },
-
+  
   run: async ({ interaction, message, args }) => {
     const discordElement = interaction || message;
     
@@ -92,9 +92,6 @@ export default {
 
     return discordElement.reply({ embeds: [embed] });
   },
-
-  description: Locales.get(`commandinfo.YearProgress.description`) || 'Affiche la progression de l\'année en cours',
-  syntax: Locales.get(`commandinfo.YearProgress.syntax`) || 'yp [mode] [color] [ascii] [compact]',
 };
 
 /**

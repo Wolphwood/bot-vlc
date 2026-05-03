@@ -191,6 +191,7 @@ export default {
   name: "8ball",
   aliases: ["8"],
   category: "fun",
+  syntax: `8ball <question>`,
   discord: {
     type: ApplicationCommandType.ChatInput,
     options: [

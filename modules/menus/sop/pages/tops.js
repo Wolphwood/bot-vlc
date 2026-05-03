@@ -1,8 +1,9 @@
 import { ComponentType, ButtonStyle } from "discord.js"
 import { dbManager } from "#modules/database/Manager";
 import { SOP_PERMISSION } from "#constants";
-import { isString, ValidateArray } from "#modules/Utils";
-import { GetNavBar, NumerotedListToColumns, SortByRatio, SortByReversedRatio } from "../shared.js";
+import { isString, uncachedImport, ValidateArray } from "#modules/Utils";
+
+const { GetNavBar, NumerotedListToColumns } = await uncachedImport("../shared.js");
 
 // Fonction utilitaire de calcul identique au musée
 function CalcScore({ smashed = 0, passed = 0, super_smashed = 0, super_passed = 0 } = {}) {

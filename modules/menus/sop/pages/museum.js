@@ -1,9 +1,10 @@
 import { SOP_PERMISSION } from "#constants";
-import { isString, selfnoop, ValidateArray } from "#modules/Utils";
+import { isString, selfnoop, uncachedImport, ValidateArray } from "#modules/Utils";
 import { ButtonStyle, ComponentType } from "discord.js"
-import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName, SortByReversedName, SortByRatio, SortByReversedRatio } from "../shared.js";
 import { dbManager } from "#modules/database/Manager";
 import Emotes from "#modules/Emotes";
+
+const { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName, SortByReversedName, SortByRatio, SortByReversedRatio } = await uncachedImport("../shared.js");
 
 function CalcScore({ smashed = 0, passed = 0, super_smashed = 0, super_passed = 0 } = {}) {
 

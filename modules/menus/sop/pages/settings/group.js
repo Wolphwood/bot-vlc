@@ -1,9 +1,9 @@
 import { PERMISSION, SOP_PERMISSION } from "#constants";
 import { dbManager } from "#modules/database/Manager";
-import { ModalForm, isString } from "#modules/Utils";
+import { ModalForm, isString, uncachedImport } from "#modules/Utils";
 import { ButtonStyle, Collection, ComponentType } from "discord.js";
 
-import { GetNavBar, NumerotedListToColumns } from "../../shared.js";
+const { GetNavBar, NumerotedListToColumns } = await uncachedImport("../../shared.js");
 
 export default [
   {

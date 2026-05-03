@@ -4,11 +4,13 @@ import { Locales } from "#modules/Locales"
 import { gzipSync } from 'zlib';
 
 import { Cooldown } from "#modules/Cooldown";
-import { GetCachedOutfitAttachment, GetNavBar, NumerotedListToColumns, SortByName } from "../shared.js";
-import { isDefined, isNull, isString, ModalForm, selfnoop as sn, ValidateArray } from "#modules/Utils";
+
+import { isDefined, isNull, isString, ModalForm, selfnoop as sn, uncachedImport, ValidateArray } from "#modules/Utils";
 import { dbManager } from "#modules/database/Manager";
 import { SOP_PERMISSION } from "#constants";
 import Emotes from "#modules/Emotes";
+
+const { GetCachedOutfitAttachment, GetNavBar, NumerotedListToColumns, SortByName } = await uncachedImport("../shared.js");
 
 export default [
   {

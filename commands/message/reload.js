@@ -5,7 +5,7 @@ import { deleteAfter } from '#modules/Utils';
 export default {
   name: "reload",
   category: "root",
-  permission: PERMISSION.ROOT,
+  userPermission: PERMISSION.ROOT,
   run: async ({ client, message }) => {
     
     // On prévient que le processus commence

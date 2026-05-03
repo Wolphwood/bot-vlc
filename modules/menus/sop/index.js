@@ -13,7 +13,7 @@ const PageMuseum = await uncachedImport("./pages/museum.js").then(m => m.default
 import { SOP_PERMISSION } from "#constants";
 import { gunzipSync } from "zlib";
 
-import { SortByName } from "./shared.js";
+import { GetCachedOutfitAttachment, GetNavBar, NumerotedListToColumns, SortByName } from "./shared.js";
 
 export async function GameSmashOrPass({ client, discordElement, GuildData, UserData, userPermission }) {  
   let loadingEmoteMessage = await discordElement.channel.send(Emotes.loading);

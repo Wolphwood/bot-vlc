@@ -125,6 +125,6 @@ console.log(finalConsoleOutput);
 // 3. Export Fichier (Nettoyé des codes couleurs)
 const cleanOutput = stripAnsi(finalConsoleOutput);
 fs.writeFileSync(path.join(process.cwd(), OUTPUT_FILE), cleanOutput, 'utf-8');
-// fs.writeFileSync(path.join(process.cwd(), 'esc_' + OUTPUT_FILE), finalConsoleOutput, 'utf-8');
+fs.writeFileSync(path.join(process.cwd(), 'esc_' + OUTPUT_FILE), finalConsoleOutput, 'utf-8');
 
 console.log(`\x1b[32m[OK] Rapport exporté avec succès dans : \x1b[1m${OUTPUT_FILE}\x1b[0m\n`);

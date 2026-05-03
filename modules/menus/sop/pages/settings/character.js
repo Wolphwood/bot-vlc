@@ -1,10 +1,10 @@
 import { PERMISSION, SOP_PERMISSION } from "#constants";
 import { dbManager } from "#modules/database/Manager";
 import Emotes from "#modules/Emotes";
-import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, isString, ValidateArray, selfnoop, deleteAfter } from "#modules/Utils";
+import { ExtractUrlsFromContent, ExtractUrlsFromAttachments, SaveUrlToLocal, MD5, ModalForm, noop, isString, ValidateArray, selfnoop, deleteAfter, uncachedImport } from "#modules/Utils";
 import { ButtonStyle, ComponentType } from "discord.js";
 
-import { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName } from "../../shared.js";
+const { GetCachedOutfitAttachment, GetCachedOutfitAttachmentPreview, GetNavBar, NumerotedListToColumns, SortByName } = await uncachedImport("../../shared.js");
 
 export default [
   {

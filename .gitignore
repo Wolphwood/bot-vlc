@@ -6,6 +6,7 @@ assets/8ball/answers/**
 package-lock.json
 
 stats.txt
+esc_stats.txt
 
 config.js
 debug.txt

@@ -4,49 +4,6 @@ import { pathToFileURL } from 'url';
 import { PERMISSION, COMMAND_TYPE } from '#constants';
 import Locales from '#modules/Locales';
 
-async function _LoadFile(client, ctype, fPath) {
-  const d = {
-    type: ctype,
-    name: null,
-    version: null,
-    syntax: null,
-    aliases: [],
-    permission: PERMISSION.USER,
-    cooldown: 10,
-    dm: false,
-    category: null,
-    file: fPath,
-    tags: [],
-    discord: {}
-  };
-
-  const proc = (data) => {
-    const merged = { ...d, ...data };
-
-    if (!merged.description) merged.description = Locales.get(`commandinfo.${data.name}.description`);
-    if (!merged.syntax) merged.syntax = Locales.get(`commandinfo.${data.name}.syntax`);
-
-    if (merged.discord?.options) {
-      merged.discord.options = merged.discord.options.map(option => {
-        return ["SUB_COMMAND", "SUB_COMMAND_GROUP"].includes(option.type)
-          ? proc(option)
-          : option
-      });
-    }
-
-    return merged;
-  };
-
-  const fURL = pathToFileURL(fPath).href;
-  const { default: data, load } = await import(fURL);
-
-  if (typeof load === "function") {
-    await load(client);
-  }
-
-  return proc(data); 
-}
-
 async function LoadFile(client, ctype, fPath) {
   const d = {
     type: ctype,
@@ -57,17 +14,22 @@ async function LoadFile(client, ctype, fPath) {
     permission: PERMISSION.USER,
     cooldown: 10,
     dm: false,
-    category: null,
+    categories: [],
     file: fPath,
     tags: [],
-    discord: {}
+    discord: {},
+    secret: false,
   };
 
   const proc = (data) => {
+    if (!data.categories) data.categories = [];
+    data.categories.push(data.category || 'uncategorized');
+    delete data.category;
+
     const merged = { ...d, ...data };
 
-    if (!merged.description) merged.description = Locales.get(`commandinfo.${data.name}.description`);
-    if (!merged.syntax) merged.syntax = Locales.get(`commandinfo.${data.name}.syntax`);
+    if (!merged.description) merged.description = Locales.get(`commandinfo.${data.name.toLowerCase().simplify()}.description`);
+    if (!merged.syntax) merged.syntax = Locales.get(`commandinfo.${data.name.toLowerCase().simplify()}.syntax`);
 
     // Normalisation : on traite merged.discord comme un array pour boucler dessus
     const discordEntries = Array.isArray(merged.discord) ? merged.discord : [merged.discord];

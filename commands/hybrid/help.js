@@ -1,8 +1,10 @@
 import { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType, ButtonStyle, ComponentType, TextInputStyle, ChannelType } from 'discord.js';
 import Emotes from '#modules/Emotes';
 import Locale from '#modules/Locales';
-import { getRandomRangeFloor, Wait, noop } from '#modules/Utils';
+import { getRandomRangeFloor, Wait, noop, uncachedImport } from '#modules/Utils';
 import { COMMAND_TYPE } from '#constants';
+
+import { HelpMenu } from '#modules/menus/help/index';
 
 export default {
   name: "help",
@@ -19,7 +21,8 @@ export default {
     ],
   },
   run: async ({ client, interaction, message, args, GuildData, UserData, LangToUse, userPermission }) => {
-    let member = interaction?.member || message?.member;
+    let discordElement = interaction || message;
+    let member = discordElement.member;
 
     let pages = await ParseArgs({ client, interaction, message, args, LangToUse, userPermission });
     if (pages === null) {
@@ -29,11 +32,11 @@ export default {
       return;
     }
 
-    HelpMenu({ client, interaction, message, member, pages, LangToUse, userPermission });
+    HelpMenu({ client, discordElement, GuildData, UserData, userPermission });
   },
 };
 
-async function HelpMenu({ client, interaction, message, member, pages, LangToUse, userPermission }) {
+async function __HelpMenu({ client, interaction, message, member, pages, LangToUse, userPermission }) {
   const NohtingImage = 'https://media.giphy.com/media/13d2jHlSlxklVe/giphy.gif';
   const TimeoutImage = 'https://media.giphy.com/media/kDwIbnBqKe3D7BSqrt/giphy.gif';
 
