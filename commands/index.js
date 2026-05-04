@@ -3,6 +3,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import { PERMISSION, COMMAND_TYPE } from '#constants';
 import Locales from '#modules/Locales';
+import { ApplicationCommandOptionType } from 'discord.js';
 
 async function LoadFile(client, ctype, fPath) {
   const d = {
@@ -21,15 +22,18 @@ async function LoadFile(client, ctype, fPath) {
     secret: false,
   };
 
-  const proc = (data) => {
+  const proc = (data, subkey) => {
     if (!data.categories) data.categories = [];
     data.categories.push(data.category || 'uncategorized');
     delete data.category;
 
     const merged = { ...d, ...data };
+    if (subkey) delete merged.file;
 
-    if (!merged.description) merged.description = Locales.get(`commandinfo.${data.name.toLowerCase().simplify()}.description`);
-    if (!merged.syntax) merged.syntax = Locales.get(`commandinfo.${data.name.toLowerCase().simplify()}.syntax`);
+    const loweredName = (subkey || data.localeKey || data.name).toLowerCase().simplify();
+
+    if (!merged.description) merged.description = Locales.get(`commandinfo.${loweredName}.description`, null, { fallback: "generic.command.description.undefined" });
+    if (!merged.syntax) merged.syntax = Locales.get(`commandinfo.${loweredName}.syntax`, [ data.name ], { fallback: "generic.command.syntax.undefined" });
 
     // Normalisation : on traite merged.discord comme un array pour boucler dessus
     const discordEntries = Array.isArray(merged.discord) ? merged.discord : [merged.discord];
@@ -37,9 +41,15 @@ async function LoadFile(client, ctype, fPath) {
     discordEntries.forEach(entry => {
       if (entry?.options) {
         entry.options = entry.options.map(option => {
-          return ["SUB_COMMAND", "SUB_COMMAND_GROUP"].includes(option.type)
-            ? proc(option) // Récursion pour les sous-commandes
-            : option;
+          if ([ApplicationCommandOptionType.Subcommand, ApplicationCommandOptionType.SubcommandGroup].includes(option.type)) {
+            return proc(option, `${loweredName}.option.${option.name}`); // Récursion pour les sous-commandes
+          } else {
+            // Traitement des arguments et de leurs traductions
+            if (!option.description) option.description = Locales.get(`commandinfo.${loweredName}.option.${option.name}.description`, null, { fallback: "generic.command.description.undefined" });
+            if (!option.syntax) option.syntax = Locales.get(`commandinfo.${loweredName}.option.${option.name}.syntax`, [ data.name ], { fallback: "generic.command.syntax.undefined" });
+            
+            return option;
+          }
         });
       }
     });
@@ -53,8 +63,8 @@ async function LoadFile(client, ctype, fPath) {
   if (typeof load === "function") {
     await load(client);
   }
-
-  return proc(data); 
+  
+  return proc(data);
 }
 
 export async function reload(client) {

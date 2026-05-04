@@ -1,3 +1,4 @@
+import Locales from "#modules/Locales";
 import { deleteAfter } from "#modules/Utils";
 
 export default {
@@ -5,7 +6,9 @@ export default {
   aliases: ["wolph", "wolphwood"],
   category: "fun",
   secret: true,
-  run: async () => {
-    discordElement.reply(`Flopwood c'est son nom.`).then(m => deleteAfter(m, 2000));
+  run: async ({ interaction, message }) => {
+    const discordElement = interaction || message;
+
+    discordElement.reply(Locales.get("command.flop.yeaaaaaah")).then(m => deleteAfter(m, 2000));
   },
 };

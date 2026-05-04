@@ -10,8 +10,8 @@ export function load(client) {
 }
 
 export default {
-  name: "age",
-  aliases: ["agify"],
+  name: "Age",
+  aliases: ["Agify"],
   category: "fun",
   discord: {
     type: ApplicationCommandType.ChatInput,

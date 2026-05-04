@@ -1,7 +1,7 @@
 import { EmbedBuilder, ApplicationCommandType, ApplicationCommandOptionType, ComponentType, ButtonStyle, TextInputStyle } from "discord.js";
 // import client from "#app";
 import Locales from "#modules/Locales";
-import { getRandomRangeRound, getRandomRangeFloor, Wait, deleteAfter, noop } from "#modules/Utils";
+import { getRandomRangeRound, getRandomRangeFloor, Wait, deleteAfter, noop, ResolveSubCommand } from "#modules/Utils";
 import Emotes from "#modules/Emotes";
 
 const API = "https://catfact.ninja/";
@@ -23,44 +23,44 @@ export async function FetchImageAPI(gif = false, fullObject = false) {
 }
 
 export default {
-  name: "cat",
-  aliases: ["chat"],
+  name: "Cat",
+  aliases: ["Chat"],
   category: "fun",
-
   discord: {
     type: ApplicationCommandType.ChatInput,
     options: [
       {
         type: ApplicationCommandOptionType.Subcommand,
-        name: "image",
-        description: Locales.get(`commandinfo.cat.option.image.description`),
+        name: "Image",
+        aliases: [ "img", "i" ]
       },
       {
         type: ApplicationCommandOptionType.Subcommand,
-        name: "fact",
-        description: Locales.get(`commandinfo.cat.option.fact.description`),
+        name: "GIF",
+        aliases: [ "g", "animated", "animée", "animé" ]
       },
       {
         type: ApplicationCommandOptionType.Subcommand,
-        name: "breeds",
-        description: Locales.get(`commandinfo.cat.option.breeds.description`),
+        name: "Fact",
+        aliases: [ "anecdote" ]
+      },
+      {
+        type: ApplicationCommandOptionType.Subcommand,
+        name: "Breeds",
+        aliases: [ "breed", "espece", "especes" ]
       },
     ],
   },
 
-  run: async ({ client, interaction, message, args, GuildData, UserData, LangToUse }) => {
+  run: async ({ client, command, interaction, message, args, GuildData, UserData, LangToUse }) => {
     let discordElement = message || interaction;
     let member = discordElement.member;
 
-    let subcommand = args.shift();
-    if (!subcommand) subcommand = "image";
+    let subcommand = ResolveSubCommand(command, args.shift())?.name ?? "image";
 
     let embed, response, data;
-    // On garde ton .simplify() si il est étendu sur le prototype String
     switch (subcommand.toLowerCase().simplify()) {
-      case "image":
-      case "img":
-      case "i": {
+      case "image": {
         const data = await FetchImageAPI(false, true);
 
         if (!data) {
@@ -81,8 +81,7 @@ export default {
         break;
       }
 
-      case "gif":
-      case "g": {
+      case "gif": {
         try {
           response = await fetch(`${IMAGE_API}/cat/gif`, { headers: { 'Accept': 'application/json' } });
         } catch {}
@@ -97,19 +96,25 @@ export default {
         }
 
         data = await response.json();
+        const imageBuffer = await getImageBuffer(data.url);
+
+        const files = [{
+          attachment: imageBuffer,
+          name: `${data.id}.gif` // C'est ici qu'on "force" l'extension pour Discord
+        }];
+
         embed = new EmbedBuilder()
           .setColor([getRandomRangeRound(127, 255), getRandomRangeRound(127, 255), getRandomRangeRound(127, 255)])
-          .setImage(`${IMAGE_API}/cat/${data.id}`)
+          .setImage(`attachment://${data.id}.gif`)
           .setFooter({ text: Locales.get("generic.embed.footer", [(discordElement.guild.members.me.nickname || client.user.username), client.config.version, member.nickname || member.user.username]) })
           .setTimestamp();
 
-        if (interaction) interaction.reply({ embeds: [embed] });
-        if (message) message.channel.send({ embeds: [embed] });
+        if (interaction) interaction.reply({ embeds: [embed], files });
+        if (message) message.channel.send({ embeds: [embed], files });
         break;
       }
 
-      case "fact":
-      case "anecdote": {
+      case "fact": {
         try {
           response = await fetch(API + "fact");
         } catch {}
@@ -128,10 +133,7 @@ export default {
         break;
       }
 
-      case "breed":
-      case "breeds":
-      case "espece":
-      case "especes": {
+      case "breeds": {
         try {
           response = await fetch(API + "breeds" + "?" + new URLSearchParams({
             limit: 99999999,
@@ -158,6 +160,14 @@ export default {
     }
   },
 };
+
+async function getImageBuffer(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Erreur lors du téléchargement: ${response.statusText}`);
+  
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
 
 async function EmbedMenu({ interaction, message, member, pages, LangToUse }) {
   const NohtingImage = 'https://media4.giphy.com/media/ES4Vcv8zWfIt2/giphy.gif';

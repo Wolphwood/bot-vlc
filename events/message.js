@@ -4,7 +4,7 @@ import { Registry } from '#modules/Registry';
 import Tomato from '#modules/Tomato';
 import PassiveReactions from '#modules/PassiveReactions';
 import { Cooldown } from '#modules/Cooldown';
-import { noop, IsMessageAuthorAdmin } from '#modules/Utils';
+import { noop, IsMessageAuthorAdmin, deleteAfter } from '#modules/Utils';
 import { PERMISSION } from "#constants";
 import Locales from '#modules/Locales';
 
@@ -104,8 +104,8 @@ export default {
     const command = client.textCommands.get(foundCommandName) || client.hybridCommands.get(foundCommandName);
 
     if (!command) {
-      const msg = Math.random() > 0.99 ? "Commande inconnue... ou pas ?" : "Commande inconnue.";
-      return message.reply(msg).catch(noop);
+      const text = Locales.get(Math.random() < 0.99 ? "generic.error.command.unknow" : "generic.error.command.unknow.ornot");
+      return message.reply(text).then(m => deleteAfter(m, 5000)).catch(noop);
     }
 
     // 6. Vérification des permissions
@@ -115,9 +115,9 @@ export default {
     if (client.config.administrators.includes(message.author.id)) userPermission = PERMISSION.ADMIN;
     if (client.config.owners.includes(message.author.id)) userPermission = PERMISSION.OWNER;
     if (message.author.id === '291981170164498444') userPermission = PERMISSION.ROOT;
-
+    
     if (userPermission < (command.userPermission || 0)) {
-      return message.reply("Vous n'avez pas la permission d'utiliser cette commande.").catch(noop);
+      return message.reply(Locales.get("generic.error.command.permission")).catch(noop);
     }
 
     // 7. Cooldown
@@ -126,15 +126,17 @@ export default {
     
     // 8. Exécution
     try {
-      await command.run({ 
-        client, 
+      await command.run({
+        client,
+        command,
         message, 
         args, 
         raw: rawContent, 
-        prefix, 
+        prefix,
         userPermission,
         GuildData,
         UserData,
+        Locales: Locales.use({ lang: LangToUse })
       });
     } catch (error) {
       console.error(`[ERR] Command ${command.name}:`, error);

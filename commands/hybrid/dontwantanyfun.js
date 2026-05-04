@@ -6,6 +6,7 @@ import { COMMAND_TYPE } from '#constants';
 
 export default {
   name: "idontwantanyfun",
+  localeKey: "nofun",
   aliases: ["dontwantanyfun","nofunforme",'nofun','jevaismefairefoutre'],
   category: 'utils',
   discord: {

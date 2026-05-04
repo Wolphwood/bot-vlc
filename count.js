@@ -2,8 +2,9 @@ import fs from 'fs';
 import path from 'path';
 
 // --- CONFIGURATION ---
-const BLACKLIST = new Set(['node_modules', '.git', 'dist', '.vscode', 'counter.js', 'count.js', 'stats.txt', '$', 'logs']);
+const BLACKLIST = new Set(['node_modules', '.git', 'dist', '.vscode', 'counter.js', 'count.js', 'stats.txt', '$', 'logs', 'package.json', 'package-lock.json']);
 const OUTPUT_FILE = 'stats.txt';
+const ALLOWED_EXTENSIONS = [ '.js', '.json' ];
 
 /**
  * Retire les codes de couleur ANSI pour l'export texte
@@ -61,7 +62,7 @@ function buildTreeData(dir) {
         totalDirStats.comment += stats.comment;
         totalDirStats.empty += stats.empty;
       }
-    } else if (entry.name.endsWith('.js')) {
+    } else if (ALLOWED_EXTENSIONS.some(ext => entry.name.endsWith(ext))) {
       const stats = getFileStats(entry.path);
       if (stats.code > 0 || stats.comment > 0) {
         data.push({

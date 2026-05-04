@@ -9,6 +9,7 @@ const { GameSmashOrPass } = await uncachedImport("#modules/menus/sop/index");
 
 export default {
   name: "SmashOrPass",
+  localeKey: 'sop',
   aliases: ['sop'],
   userPermission: PERMISSION.USER,
   discord: {

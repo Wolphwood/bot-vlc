@@ -1,9 +1,10 @@
-import { ComponentType, ButtonStyle, AttachmentBuilder, Collection } from "discord.js";
+import { ComponentType, ButtonStyle, Collection } from "discord.js";
 
 import { noop, DiscordMenu, uncachedImport, isString, ValidateArray, ModalForm } from "#modules/Utils";
 import Emotes from "#modules/Emotes"
-import { dbManager } from "#modules/database/Manager"
 import { COMMAND_TYPE } from "#constants";
+import Locales from "#modules/Locales";
+
 const { GetNavBar } = await uncachedImport("./shared");
 
 // const PageHome = await uncachedImport("./pages/home.js").then(m => m.default);
@@ -223,6 +224,13 @@ export async function HelpMenu({ client, discordElement, GuildData, UserData, us
                 return true;
               },
             }],
+            [{
+              type: ComponentType.Button,
+              style: ButtonStyle.Danger,
+              emoji: { name: "🔒" },
+              label: "Fermer",
+              action: "stop"
+            }],
           ]
         }];
       }
@@ -231,6 +239,11 @@ export async function HelpMenu({ client, discordElement, GuildData, UserData, us
       name: "help-view",
       components: function() {
         const command = this.data._help.selected;
+
+        let helpsection = Locales.get(`commandinfo.${command.name.toLowerCase().simplify()}.help`, [ command.name ], { null: true, array: true })?.join('\n');
+        if (!helpsection) helpsection = Locales.get(`generic.command.help.undefined`);
+
+        console.log(helpsection)
 
         return [{
           type: ComponentType.Container,
@@ -243,10 +256,9 @@ export async function HelpMenu({ client, discordElement, GuildData, UserData, us
                 command.categories.length > 0 && `### Categories : ${command.categories.join(', ')}`,
                 command.syntax && `Syntaxe : ${command.syntax}`,
                 command.description,
-                command.help,
               ].filter(isString),
 
-              command.help && [ command.help ],
+              [ helpsection ],
 
               [
                 {
@@ -254,6 +266,13 @@ export async function HelpMenu({ client, discordElement, GuildData, UserData, us
                   emoji: { name: "👈" },
                   label: "Retour",
                   action: "goto:help"
+                },
+                {
+                  type: ComponentType.Button,
+                  style: ButtonStyle.Danger,
+                  emoji: { name: "🔒" },
+                  label: "Fermer",
+                  action: "stop"
                 }
               ],
             ]

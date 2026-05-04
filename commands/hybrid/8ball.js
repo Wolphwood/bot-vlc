@@ -15,7 +15,7 @@ const TrollAnswers = [
   { answer: "Mdr tu crois vraiment que je vais répondre à ça ?", cooldown: 3600, color: 0x2C3E50 }, // Bleu nuit
   { answer: "Bah logiquement... non.", cooldown: 3600, color: 0xE67E22 }, // Carotte
   { answer: "Google est ton ami, je ne suis qu'une boule de billard.", cooldown: 1800, color: 0x34495E },
-  { answer: "La réponse est cachée derrière toi. (Nan je rigole).", cooldown: 3600, color: 0x000000 }, // Noir
+  { answer: "La réponse est cachée derrière toi. (Nan je rigole).", cooldown: 0, color: 0x000000 }, // Noir
   { answer: "C'est un grand OUI, mais juste pour te faire plaisir.", cooldown: 3600, color: 0x1ABC9C }, // Turquoise
   { answer: "Écoute... même moi j'ai pas la réponse là.", cooldown: 1800, color: 0xBDC3C7 }, // Argent
   { answer: "Signes incertains, reviens quand tu seras sobre.", cooldown: 1800, color: 0xD35400 } // Citrouille
@@ -188,17 +188,16 @@ async function Get8BallAnswerImage(answer) {
 }
 
 export default {
-  name: "8ball",
+  name: "8Ball",
   aliases: ["8"],
   category: "fun",
-  syntax: `8ball <question>`,
   discord: {
     type: ApplicationCommandType.ChatInput,
     options: [
       {
         type: ApplicationCommandOptionType.String,
         name: "question",
-        description: "Pose ta question",
+        // description: "Pose ta question",
         required: true
       }
     ],

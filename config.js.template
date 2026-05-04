@@ -8,7 +8,7 @@ export default {
   version: pkg.version,
   owners: process.env.DISCORD_OWNERS.split(/[\s,;]/gmi),
   administrators: [],
-  developmentGuild: process.env.DISCORD_DEVELOPMENT_GUILDS.split(/[\s,;]/gmi),
+  development_guilds: process.env.DISCORD_DEVELOPMENT_GUILDS.split(/[\s,;]/gmi),
   apis: {},
   bdd: {
     host: process.env.BDD_HOST,

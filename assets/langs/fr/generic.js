@@ -1,13 +1,18 @@
 export default {
   "lang.name": "Français",
+
   "generic.error.invalid": "La valeur entrée est invalide.",
   "generic.error.command.unknow": "Commande inconnue :thinking:",
-  "generic.error.subcommand.unknow": "Sous-Commande inconnue :thinking:",
+  "generic.error.command.unknow.ornot": "Commande inconnue... ou pas ?",
   "generic.error.command.unknow.troll": "English or Spannish ? :dotted_line_face:",
   "generic.error.command.internal_error": "Une erreur interne est survenue.\n Le code d'erreur est `[%0a]`",
+  "generic.error.command.permission": "Tu n'as pas les permissions requises pour utiliser cette commande.",
+  
+  "generic.error.subcommand.unknow": "Sous-Commande inconnue :thinking:",
+  
+  
   "generic.error.slash.unavailable": "La commande est indisponible.",
   "generic.error.slash.internal_error": "Une erreur interne est survenue.\n Le code d'erreur est `[%0a]`",
-  "generic.error.slash.error.permission": "Tu n'as pas les permissions requises pour utiliser cette commande.",
   "generic.error.time":"Tu as mit trop de temps à répondre.",
   "generic.error.unknow_user": "⚠️ Utilisateur introuvable ou invalide.",
   "generic.error.unknow_channel": "⚠️ Channel introuvable ou invalide.",
@@ -48,17 +53,19 @@ export default {
   "generic.error.channel.whitelist":"Cette commande est soumise à une whitelist de salons et ce salon n'en fait pas parti.",
   "generic.error.channel.blacklist":"Cette commande est soumise à une blacklist de salons et ce salon en fait parti.",
 
-  "generic.error.command.ban.temp":"Tu es actuellement interdit d'utilisation de cette commande pour la raison suivante : `%0a`.\nTon ban sera automatiquement levé <t:%1a:R>",
-  "generic.error.command.ban.unspecified.temp":"Tu es actuellement interdit d'utilisation de cette commande.\nTon ban sera automatiquement levé <t:%0a:R>",
-  "generic.error.command.ban.def":"Tu es actuellement interdit d'utilisation de cette commande pour la raison suivante : `%0a`.",
-  "generic.error.command.ban.unspecified.def":"Tu es actuellement interdit d'utilisation de cette commande.",
+  "generic.error.command.ban.reason":"Tu es actuellement interdit d'utilisation de cette commande pour la raison suivante : `%0a`.",
+  "generic.error.command.ban.reason.unspecified":"Tu es actuellement interdit d'utilisation de cette commande.",
+  "generic.error.command.ban.time":"Ton ban sera automatiquement levé <t:%1a:R>",
+  
 
   "generic.input.mention.role": "_Veuillez mentionnez un ou plusieurs rôles_",
   "generic.input.mention.user": "_Veuillez mentionnez un ou plusieurs utilisateurs_",
   "generic.input.mention.mention": "_Veuillez mentionnez un ou plusieurs utilisateurs ou rôles_",
   "generic.input.mention.channel": "_Veuillez mentionnez un ou plusieurs salons_",
 
-  "generic.command.noSyntax": "Aucune syntaxe spécifiée.",
+  "generic.command.syntax.undefined": "Aucune syntaxe spécifiée.",
+  "generic.command.description.undefined": "Aucune description spécifiée.",
+  "generic.command.help.undefined": "Aucune information supplémentaire spécifiée.",
 
   "generic.embed.footer": "%0a v%1a | Requested by %2a",
   "generic.embed.footer.page":"%0a v%1a | Vitesse de navigation : %2a | Page %3a/%4a",

@@ -1,5 +1,5 @@
 import { Registry } from '#modules/Registry';
-import { ChannelType, PermissionFlagsBits } from 'discord.js';
+import { ApplicationCommandOptionType, ChannelType, PermissionFlagsBits } from 'discord.js';
 
 import { noop } from "#modules/Utils";
 
@@ -11,6 +11,7 @@ Registry.register({
   details: [
     "ResolveMember",
     "IsMessageAuthorAdmin",
+    "ResolveSubCommand",
   ]
 });
 
@@ -49,9 +50,34 @@ export async function ResolveMember(guild, query) {
   }) || null;
 }
 
-
 // MARK: IsMessageAuthorAdmin
 export function IsMessageAuthorAdmin(element) {
   if (element.channel.type == ChannelType.DM) return false;
   return element.member.permissions.has(PermissionFlagsBits.Administrator);
 }
+
+// MARK: ResolveSubCommand
+export function ResolveSubCommand(commandConfig, inputName) {
+  if (!inputName) return null;
+
+  const options = commandConfig.discord?.options ?? commandConfig.options;
+  if (!options) return null;
+
+  const search = inputName.toLowerCase().simplify();
+
+  for (const opt of options) {
+    if (opt.type === ApplicationCommandOptionType.SubcommandGroup) {
+      const found = ResolveSubCommand(opt, inputName);
+      if (found) return found;
+    }
+    
+    if (opt.type === ApplicationCommandOptionType.Subcommand) {
+      const names = [opt.name, ...(opt.aliases || [])].map(n => n.toLowerCase().simplify());
+      if (names.includes(search)) {
+        return opt;
+      }
+    }
+  }
+
+  return null;
+};

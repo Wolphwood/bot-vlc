@@ -23,13 +23,7 @@ process.on('unhandledRejection', (reason, promise) => {
   console.fatal('UNHANDLED REJECTION at:', promise, 'reason:', reason);
 });
 
-fs.readdirSync('./assets/langs/').forEach(file => {
-  if (file.endsWith('.json')) {
-    let content = fs.readFileSync(path.join('./assets/langs/', file), 'utf-8');
-    Locales.registerLocale(file.slice(0,-5), JSON.parse(content));
-  }
-});
-
+await Locales.loadFolder("./assets/langs/");
 Locales.setDefaultLang('en');
 Locales.setLang('fr');
 

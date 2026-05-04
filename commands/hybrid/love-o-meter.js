@@ -287,6 +287,7 @@ const AllowedSize = [
 
 export default {
   name: "love-o-meter",
+  localeKey: "lovemeter",
   aliases: ["love"],
   category: "fun",
   discord: {

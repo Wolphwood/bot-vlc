@@ -8,11 +8,15 @@ Registry.register({
   ]
 });
 
+import fs from "fs";
+import path from "path";
+
 import {
   isBoolean, isObject, isArray, isString, isNumber, isEmpty, isNull, isDefined,
   noop, selfnoop, KeyOf,
   ValidateBoolean, ValidateObject, ValidateArray, ValidateString, ValidateNumber,
 } from "#modules/Utils"
+import { pathToFileURL } from 'url';
 
 let LANGS = {};
 
@@ -36,6 +40,51 @@ class LocaleManager {
     
     this.#defaultLang = ValidateString(defaultLang, 'en').toLowerCase();
     this.#lang = ValidateString(lang, this.#defaultLang).toLowerCase();
+  }
+
+  async loadFolder(basePath) {
+    if (!fs.existsSync(basePath)) {
+      throw new Error(`[LocaleManager] Root directory not found: ${basePath}`);
+    }
+
+    const folders = fs.readdirSync(basePath, { withFileTypes: true })
+      .filter(dirent => dirent.isDirectory());
+
+    for (let folder of folders) {
+      const langCode = folder.name.toLowerCase().simplify();
+      const folderPath = path.join(basePath, folder.name);
+      
+      await this.loadLangFolder(langCode, folderPath);
+    }
+  }
+
+  async loadLangFolder(langCode, folderPath) {
+    if (!fs.existsSync(folderPath)) {
+      console.warn(`[LocaleManager] Lang directory not found: ${folderPath}`);
+      return;
+    }
+
+    const files = fs.readdirSync(folderPath, { recursive: true })
+      .filter(file => file.endsWith('.js') || file.endsWith('.json'));
+    
+    for (let file of files) {
+      const filePath = path.join(folderPath, file);
+      const isJson = file.endsWith('.json')
+
+      try {
+        const fileUrl = pathToFileURL(filePath).href;
+        const module = isJson 
+          ? await import(fileUrl, { with: { type: 'json' } })
+          : await import(fileUrl)
+        ;
+        
+        const data = module.default || module;
+        
+        this.registerLocale(langCode.toLowerCase(), data);
+      } catch (err) {
+        console.error(`[LocaleManager] Error loading file ${file} for lang ${langCode}:`, err);
+      }
+    }
   }
 
   getLocales() {
@@ -180,10 +229,17 @@ class LocaleManager {
         return value.getRandomElement();
       }
     }
-    
-    return options.default ?? key;
-  }
 
+    if (options.fallback) {
+      let fallback = options.fallback;
+      delete options.fallback;
+
+      return this.getRaw(fallback, args, options); 
+    }
+    
+    return options.default ?? (options.null === true ? null : key);
+  }
+  
   get(key, args = null, options = {}) {
     let value = this.getKeyValue(key, options);
 
@@ -199,7 +255,21 @@ class LocaleManager {
       }
     }
     
-    return options.default ?? key;
+    if (options.fallback) {
+      let fallback = options.fallback;
+      delete options.fallback;
+
+      return this.get(fallback, args, options); 
+    }
+
+    return options.default ?? (options.null === true ? null : key);
+  }
+
+  use(options) {
+    return {
+      getRaw: (key, args, opt) => this.getRaw(key, args, { ...options, ...opt }),
+      get: (key, args, opt) => this.get(key, args, { ...options, ...opt }),
+    }
   }
 
   formatString(string, args = []) {
@@ -229,7 +299,7 @@ class LocaleManager {
         default: return match;
         }
     });
-    }
+  }
 }
 
 const Locales = new LocaleManager();

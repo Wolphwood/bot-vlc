@@ -7,29 +7,48 @@ Registry.register({
   version: "2.0"
 });
 
+function formatOptions(options) {
+  if (!options) return undefined;
+
+  return options.map(opt => {
+    const formattedOption = {
+      ...opt,
+      name: opt.name.toLowerCase().simplify().trim(),
+    };
+
+    if (opt.options) {
+      formattedOption.options = formatOptions(opt.options);
+    }
+
+    return formattedOption;
+  });
+};
+
+function formatCommand(cmd) {
+  const cmdconfig = Array.isArray(cmd.discord) ? cmd.discord : [cmd.discord];
+
+  return cmdconfig.map(conf => {
+    const converted = {
+      ...conf,
+      name: cmd.name.toLowerCase().simplify().trim(),
+      description: cmd.description,
+      options: formatOptions(conf.options) 
+    };
+
+    // Les Context Menus (Message/User) ne doivent pas avoir de description
+    if (converted.type === ApplicationCommandType.Message || converted.type === ApplicationCommandType.User) {
+      delete converted.description;
+    }
+
+    return converted;
+  });
+};
+
 export default {
   name: Events.ClientReady,
   once: true,
   run: async ({ client }) => {
     console.log(`Enregistrement des commandes pour ${client.user.tag}...`);
-
-    const formatCommand = (cmd) => {
-      const cmdconfig = Array.isArray(cmd.discord) ? cmd.discord : [cmd.discord];
-
-      return cmdconfig.map(conf => {
-        const converted = {
-          ...conf,
-          name: cmd.name.toLowerCase().simplify().trim(),
-          description: cmd.description
-        };
-        
-        if (converted.type === ApplicationCommandType.Message) {
-          delete converted.description;
-        }
-        
-        return converted;
-      });
-    };
 
     try {
       const fullCommands = [
@@ -43,8 +62,6 @@ export default {
     } catch (error) {
       console.error("[NOK] Erreur lors de l'enregistrement des commandes :", error);
     }
-
-
 
     let mEvents = [];
     let mUtils = [];
